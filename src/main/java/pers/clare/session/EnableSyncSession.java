@@ -16,8 +16,6 @@ public @interface EnableSyncSession {
     )
     String value() default "";
 
-    Class<? extends SyncSession> sessionClass() default SyncSession.class;
-
     String dataSourceRef() default "dataSource";
 
 }

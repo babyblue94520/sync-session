@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.ConcurrentReferenceHashMap;
 import pers.clare.session.constant.InvalidateBy;
 import pers.clare.session.exception.SyncSessionException;
@@ -44,49 +45,48 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
     private final Class<T> sessionClass;
 
     // session 最大存活時間
-    private final long maxInactiveInterval;
+    private long maxInactiveInterval;
 
     // 本地緩存 session 時間
-    private final long updateInterval;
-
-    // 更新 session 排程間隔
-    private final long delay;
+    private long updateInterval;
 
     // session 實際管理
     private final SyncSessionStore<T> store;
 
-    private final SyncSessionEventService sessionEventService;
+    private String invalidateTopic;
 
-    private final String invalidateTopic;
+    private String clearTopic;
 
-    private final String clearTopic;
+    private Function<? super String, ? extends T> findSession;
 
-    private final Function<? super String, ? extends T> findSession;
+    @Autowired
+    private SyncSessionProperties properties;
 
-    private final Runnable batchUpdateRunnable;
-
-    private final SyncSessionProperties properties;
-
-    @SuppressWarnings("unused")
-    public SyncSessionServiceImpl(
-            SyncSessionProperties properties
-            , DataSource dataSource
-            , SyncSessionEventService sessionEventService
-    ) {
-        this(null, properties, dataSource, sessionEventService);
-    }
+    @Autowired
+    private SyncSessionEventService sessionEventService;
 
     @SuppressWarnings("unchecked")
     public SyncSessionServiceImpl(
-            Class<? extends SyncSession> sessionClass
-            , SyncSessionProperties properties
-            , DataSource dataSource
-            , SyncSessionEventService sessionEventService
+             DataSource dataSource
     ) {
-        this.sessionClass = (Class<T>) (sessionClass == null ? SessionUtil.getSessionClass(this.getClass()) : sessionClass);
-        this.properties = properties;
+        this.sessionClass = (Class<T>) SessionUtil.getSessionClass(this.getClass());
         this.store = new SyncSessionStoreImpl<>(dataSource, this.sessionClass);
-        this.sessionEventService = sessionEventService;
+    }
+
+    @Override
+    public void afterPropertiesSet() {
+        this.maxInactiveInterval = properties.getTimeout().toMillis();
+        this.updateInterval = maxInactiveInterval / 2;
+        // 更新 session 排程間隔
+        long delay = maxInactiveInterval / 10;
+        this.findSession = (id) -> {
+            long now = System.currentTimeMillis();
+            T session = store.find(id, now - maxInactiveInterval);
+            if (session != null) {
+                session.maxInactiveInterval = maxInactiveInterval;
+            }
+            return session;
+        };
 
         // 監聽 session 清除或註銷事件
         if (sessionEventService == null || properties.getTopic() == null) {
@@ -98,25 +98,8 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
             sessionEventService.addListener(invalidateTopic, this::invalidateHandler);
             sessionEventService.addListener(clearTopic, this::clearHandler);
         }
-        this.maxInactiveInterval = properties.getTimeout().toMillis();
-        this.updateInterval = maxInactiveInterval / 2;
-        this.delay = maxInactiveInterval / 10;
-        this.findSession = (id) -> {
-            long now = System.currentTimeMillis();
-            T session = store.find(id, now - maxInactiveInterval);
-            if (session != null) {
-                session.maxInactiveInterval = maxInactiveInterval;
-            }
-            return session;
-        };
-
-        this.batchUpdateRunnable = this::batchUpdate;
-    }
-
-    @Override
-    public void afterPropertiesSet() {
         // 排程檢查 Session 狀態
-        executor.scheduleWithFixedDelay(batchUpdateRunnable, delay, delay, TimeUnit.MILLISECONDS);
+        executor.scheduleWithFixedDelay(this::batchUpdate, delay, delay, TimeUnit.MILLISECONDS);
     }
 
     @Override
