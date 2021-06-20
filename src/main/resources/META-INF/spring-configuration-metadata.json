@@ -6,6 +6,11 @@
       "sourceType": "org.springframework.boot.autoconfigure.jdbc.DataSourceProperties"
     },
     {
+      "name": "sync-session.dataSourceRef",
+      "type": "java.lang.String",
+      "description": "DataSource bean name"
+    },
+    {
       "name": "sync-session.cookieName",
       "type": "java.lang.String",
       "description": "Cookie name",

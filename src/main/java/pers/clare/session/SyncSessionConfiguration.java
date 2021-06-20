@@ -4,6 +4,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.*;
 import org.springframework.core.annotation.AnnotationAttributes;
@@ -12,6 +13,7 @@ import org.springframework.core.type.AnnotationMetadata;
 import javax.sql.DataSource;
 
 @Configuration
+@ConditionalOnProperty(name = "sync-session.dataSourceRef")
 @EnableConfigurationProperties(SyncSessionProperties.class)
 public class SyncSessionConfiguration implements ImportAware, BeanFactoryAware {
 
@@ -20,8 +22,10 @@ public class SyncSessionConfiguration implements ImportAware, BeanFactoryAware {
 
 
     @Bean
-    @ConditionalOnMissingBean(value = SyncSessionService.class)
-    public SyncSessionService<SyncSession> syncSessionService() {
+    @ConditionalOnMissingBean(SyncSessionService.class)
+    public SyncSessionService<SyncSession> syncSessionService(
+            SyncSessionProperties properties
+    ) {
         DataSource dataSource = (DataSource) this.beanFactory.getBean(annotationAttributes.getString("dataSourceRef"));
         return new SyncSessionServiceImpl<>(dataSource);
     }

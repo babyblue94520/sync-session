@@ -9,7 +9,7 @@ import java.time.Duration;
 public class SyncSessionProperties {
     public static final String PREFIX = "sync-session";
 
-    private Class<SyncSession> sessionClass = SyncSession.class;
+    private String dataSourceRef = "";
 
     private String cookieName = "SSESSIONID";
 
@@ -17,12 +17,12 @@ public class SyncSessionProperties {
 
     private String topic = "sync.session";
 
-    public Class<SyncSession> getSessionClass() {
-        return sessionClass;
+    public String getDataSourceRef() {
+        return dataSourceRef;
     }
 
-    public void setSessionClass(Class<SyncSession> sessionClass) {
-        this.sessionClass = sessionClass;
+    public void setDataSourceRef(String dataSourceRef) {
+        this.dataSourceRef = dataSourceRef;
     }
 
     public String getCookieName() {
