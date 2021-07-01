@@ -9,21 +9,13 @@ import java.time.Duration;
 public class SyncSessionProperties {
     public static final String PREFIX = "sync-session";
 
-    private String dataSourceRef = "";
-
     private String cookieName = "SSESSIONID";
 
     private Duration timeout = Duration.ofMinutes(30);
 
     private String topic = "sync.session";
 
-    public String getDataSourceRef() {
-        return dataSourceRef;
-    }
-
-    public void setDataSourceRef(String dataSourceRef) {
-        this.dataSourceRef = dataSourceRef;
-    }
+    private int checkTimeoutWorkers = 1;
 
     public String getCookieName() {
         return cookieName;
@@ -47,5 +39,13 @@ public class SyncSessionProperties {
 
     public void setTopic(String topic) {
         this.topic = topic;
+    }
+
+    public int getCheckTimeoutWorkers() {
+        return checkTimeoutWorkers;
+    }
+
+    public void setCheckTimeoutWorkers(int checkTimeoutWorkers) {
+        this.checkTimeoutWorkers = checkTimeoutWorkers;
     }
 }

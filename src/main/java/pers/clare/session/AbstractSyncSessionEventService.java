@@ -2,7 +2,6 @@ package pers.clare.session;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import pers.clare.session.SyncSessionEventService;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;

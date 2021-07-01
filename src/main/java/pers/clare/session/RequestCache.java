@@ -116,8 +116,6 @@ public class RequestCache<T extends SyncSession> {
 
     private boolean updateSession = false;
 
-    private boolean refresh = false;
-
     public void save() {
         updateSession = true;
     }
@@ -135,9 +133,7 @@ public class RequestCache<T extends SyncSession> {
     }
 
     public void invalidate() {
-        if (session == null) {
-            session = getSession();
-        }
+        if (session == null) session = getSession();
         if (session == null) return;
         session.valid = false;
         sessionService.invalidate(session);
@@ -145,11 +141,7 @@ public class RequestCache<T extends SyncSession> {
     }
 
     public void refreshSession() {
-        if (refresh) return;
-        refresh = true;
-        if (session == null) {
-            getSession(false);
-        }
+        if (session == null) getSession();
         if (session == null) return;
         if (session.valid) {
             if (!ping) {
@@ -181,7 +173,6 @@ public class RequestCache<T extends SyncSession> {
         this.sessionCookie = null;
         this.ping = false;
         this.updateSession = false;
-        this.refresh = false;
     }
 
     public void setPing(boolean ping) {
@@ -347,7 +338,7 @@ public class RequestCache<T extends SyncSession> {
     public void addCookie(ResponseCookie.ResponseCookieBuilder cookieBuilder) {
         String origin = getOrigin();
         // 處理跨域
-        if (!StringUtils.hasLength(origin)
+        if (StringUtils.hasLength(origin)
                 && !(getUrl().startsWith(origin) && getUrl().startsWith("/", origin.length()))
         ) {
             cookieBuilder
@@ -355,5 +346,20 @@ public class RequestCache<T extends SyncSession> {
                     .sameSite("none");
         }
         response.addHeader(HttpHeaders.SET_COOKIE, cookieBuilder.build().toString());
+    }
+
+    public long getSessionTimeout(boolean ping) {
+        SyncSession session = getSession(false);
+        long timeout = 0;
+        if (session != null) {
+            setPing(ping);
+            long lastAccessTime = session.getLastAccessTime();
+            if (lastAccessTime == 0) {
+                timeout = session.getMaxInactiveInterval();
+            } else {
+                timeout = session.getLastAccessTime() + session.getMaxInactiveInterval() - getAccessTime();
+            }
+        }
+        return timeout < 0 ? 0 : timeout;
     }
 }

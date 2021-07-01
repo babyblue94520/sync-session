@@ -4,11 +4,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.ConcurrentReferenceHashMap;
 import pers.clare.session.constant.InvalidateBy;
 import pers.clare.session.exception.SyncSessionException;
 import pers.clare.session.listener.RequestSessionInvalidateListener;
+import pers.clare.session.util.DataSourceSchemaUtil;
 import pers.clare.session.util.SessionUtil;
 
 import javax.sql.DataSource;
@@ -31,7 +31,6 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
     // 當 session id 重複時，嘗試重建次數
     public static final int MAX_RETRY_INSERT = 5;
 
-    private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
 
     // 本地 session 緩存
     private final ConcurrentMap<String, T> sessions = new ConcurrentHashMap<>();
@@ -44,14 +43,14 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
     // 反建構的 session class
     private final Class<T> sessionClass;
 
-    // session 最大存活時間
-    private long maxInactiveInterval;
-
-    // 本地緩存 session 時間
-    private long updateInterval;
-
     // session 實際管理
     private final SyncSessionStore<T> store;
+
+    private final SyncSessionProperties properties;
+
+    private final SyncSessionEventService sessionEventService;
+
+    private ScheduledExecutorService executor;
 
     private String invalidateTopic;
 
@@ -59,18 +58,30 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
 
     private Function<? super String, ? extends T> findSession;
 
-    @Autowired
-    private SyncSessionProperties properties;
+    // session 最大存活時間
+    private long maxInactiveInterval;
 
-    @Autowired
-    private SyncSessionEventService sessionEventService;
+    // 本地緩存 session 時間
+    private long updateInterval;
 
     @SuppressWarnings("unchecked")
     public SyncSessionServiceImpl(
-             DataSource dataSource
+            SyncSessionProperties properties
+            , DataSource dataSource
+            , SyncSessionEventService sessionEventService
     ) {
         this.sessionClass = (Class<T>) SessionUtil.getSessionClass(this.getClass());
+        this.properties = properties;
         this.store = new SyncSessionStoreImpl<>(dataSource, this.sessionClass);
+        try {
+            DataSourceSchemaUtil.init(dataSource);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        this.sessionEventService = sessionEventService;
+        if (properties.getCheckTimeoutWorkers() > 0) {
+            executor = Executors.newScheduledThreadPool(1);
+        }
     }
 
     @Override
@@ -98,12 +109,15 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
             sessionEventService.addListener(invalidateTopic, this::invalidateHandler);
             sessionEventService.addListener(clearTopic, this::clearHandler);
         }
-        // 排程檢查 Session 狀態
-        executor.scheduleWithFixedDelay(this::batchUpdate, delay, delay, TimeUnit.MILLISECONDS);
+        if (executor != null) {
+            // 排程檢查 Session 狀態
+            executor.scheduleWithFixedDelay(this::batchUpdate, delay, delay, TimeUnit.MILLISECONDS);
+        }
     }
 
     @Override
     public void destroy() {
+        if (executor == null) return;
         executor.shutdown();
         log.info("{} executor shutdown...", "Session");
         try {
@@ -121,6 +135,13 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
     }
 
     public T find(String id) {
+        if (id == null || id.length() != ID_LENGTH) return null;
+        T session = findFromLocal(id);
+        if (session != null) return session;
+        return sessions.computeIfAbsent(id, findSession);
+    }
+
+    T get(String id) {
         if (id == null || id.length() != ID_LENGTH) return null;
         T session = findFromLocal(id);
         if (session != null) return session;
@@ -164,6 +185,11 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
     public void invalidate(String id) {
         if (id == null || id.length() != ID_LENGTH) return;
         doInvalidate(id);
+    }
+
+    @Override
+    public void invalidateByUsername(String username) {
+        batchInvalidate(store.findAll(username));
     }
 
     private T doInsert(T session, int count) {
@@ -258,25 +284,30 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
                 log.debug("update session:{} real:{} {}ms", updates.size(), count, System.currentTimeMillis() - t);
             }
             // 註銷
-            List<SyncSessionId> ids = store.findAllInvalidate(check);
-            if (ids.size() > 0) {
-                String id;
-                for (SyncSessionId syncSessionId : ids) {
-                    try {
-                        id = syncSessionId.getId();
-                        sessions.remove(id);
-                        if (store.delete(id) == 0) continue;
-                        triggerInvalidateEvent(id, syncSessionId.getUsername());
-                    } catch (Exception e) {
-                        log.error(e.getMessage(), e);
-                    }
-                }
-            }
-            log.debug("invalidate session:{} {}ms", ids.size(), System.currentTimeMillis() - t);
+            int invalidateCount = batchInvalidate(store.findAllInvalidate(check));
+            log.debug("invalidate session:{} {}ms", invalidateCount, System.currentTimeMillis() - t);
             log.debug("batchUpdate {}>{} {}ms", originSize, sessions.size(), (System.currentTimeMillis() - now));
         } catch (Exception e) {
             log.error(e.getMessage());
         }
+    }
+
+    private int batchInvalidate(List<SyncSessionId> ids) {
+        if (ids.size() == 0) return 0;
+        int count = 0;
+        String id;
+        for (SyncSessionId syncSessionId : ids) {
+            try {
+                id = syncSessionId.getId();
+                sessions.remove(id);
+                if (store.delete(id) == 0) continue;
+                count++;
+                triggerInvalidateEvent(id, syncSessionId.getUsername());
+            } catch (Exception e) {
+                log.error(e.getMessage(), e);
+            }
+        }
+        return count;
     }
 
     private void triggerInvalidateEvent(String id, String username) {

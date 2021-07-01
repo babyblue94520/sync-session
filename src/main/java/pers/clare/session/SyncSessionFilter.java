@@ -35,15 +35,11 @@ public class SyncSessionFilter implements Filter {
             , ServletResponse res
             , FilterChain chain
     ) throws IOException, ServletException {
-        HttpServletRequest request = (HttpServletRequest) req;
-        HttpServletResponse response = (HttpServletResponse) res;
-
-        RequestCache<SyncSession> requestCache = RequestCacheHolder.init(request, response, syncSessionService);
+        RequestCache<SyncSession> requestCache = RequestCacheHolder.init((HttpServletRequest) req, (HttpServletResponse) res, syncSessionService);
         try {
-            chain.doFilter(request, response);
-            requestCache.refreshSession();
+            chain.doFilter(req, res);
         } finally {
-            requestCache.finish();
+            requestCache.refreshSession();
         }
     }
 }

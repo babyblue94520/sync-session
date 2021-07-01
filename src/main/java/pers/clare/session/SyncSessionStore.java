@@ -10,6 +10,8 @@ public interface SyncSessionStore<T extends SyncSession> {
 
     String findUsername(String id);
 
+    List<SyncSessionId> findAll(String username);
+
     List<SyncSessionId> findAllInvalidate(long time);
 
     void insert(T session) throws SQLException;

@@ -12,15 +12,14 @@ public class RequestCacheHolder {
     private static final ThreadLocal<RequestCache<? extends SyncSession>> cache =
             new NamedThreadLocal<>("Request Cache Holder");
 
-    @SuppressWarnings("unchecked")
     public static <T extends SyncSession> RequestCache<T> init(
             HttpServletRequest request
             , HttpServletResponse response
             , SyncSessionService<T> sessionService
     ) {
-        RequestCache<T> req = (RequestCache<T>) cache.get();
-        if (req == null) cache.set((req = new RequestCache<>()));
+        RequestCache<T> req = new RequestCache<>();
         req.init(request, response, sessionService);
+        cache.set(req);
         return req;
     }
 

@@ -15,6 +15,8 @@ public interface SyncSessionService<T extends SyncSession> {
 
     void invalidate(String id);
 
+    void invalidateByUsername(String username);
+
     RequestSessionInvalidateListener addInvalidateListeners(RequestSessionInvalidateListener listener);
 
 }

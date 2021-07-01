@@ -1,33 +1,36 @@
 package pers.clare.session;
 
-import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.BeanFactoryAware;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.*;
-import org.springframework.core.annotation.AnnotationAttributes;
-import org.springframework.core.type.AnnotationMetadata;
+import org.springframework.lang.Nullable;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import pers.clare.session.support.auth.AuthArgumentResolver;
 
 import javax.sql.DataSource;
+import java.util.List;
 
-@Configuration
-@ConditionalOnProperty(name = "sync-session.dataSourceRef")
 @EnableConfigurationProperties(SyncSessionProperties.class)
-public class SyncSessionConfiguration implements ImportAware, BeanFactoryAware {
+public class SyncSessionConfiguration implements WebMvcConfigurer {
 
-    private AnnotationAttributes annotationAttributes;
-    private BeanFactory beanFactory;
-
+    @Override
+    public void addArgumentResolvers(
+            List<HandlerMethodArgumentResolver> argumentResolvers
+    ) {
+        argumentResolvers.add(new AuthArgumentResolver());
+    }
 
     @Bean
+    @Autowired(required = false)
     @ConditionalOnMissingBean(SyncSessionService.class)
     public SyncSessionService<SyncSession> syncSessionService(
-            SyncSessionProperties properties
+            DataSource dataSource
+            , SyncSessionProperties properties
+            , @Nullable SyncSessionEventService sessionEventService
     ) {
-        DataSource dataSource = (DataSource) this.beanFactory.getBean(annotationAttributes.getString("dataSourceRef"));
-        return new SyncSessionServiceImpl<>(dataSource);
+        return new SyncSessionServiceImpl<>(properties, dataSource, sessionEventService);
     }
 
     @Bean
@@ -36,16 +39,5 @@ public class SyncSessionConfiguration implements ImportAware, BeanFactoryAware {
             SyncSessionService syncSessionService
     ) {
         return new SyncSessionFilter(syncSessionService);
-    }
-
-    @Override
-    public void setImportMetadata(AnnotationMetadata importMetadata) {
-        this.annotationAttributes = AnnotationAttributes
-                .fromMap(importMetadata.getAnnotationAttributes(EnableSyncSession.class.getName()));
-    }
-
-    @Override
-    public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
-        this.beanFactory = beanFactory;
     }
 }

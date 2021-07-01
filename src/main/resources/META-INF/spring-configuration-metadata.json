@@ -1,238 +1,32 @@
 {
   "properties": [
     {
-      "name": "sync-session.datasource",
-      "type": "org.springframework.boot.autoconfigure.jdbc.DataSourceProperties",
-      "sourceType": "org.springframework.boot.autoconfigure.jdbc.DataSourceProperties"
-    },
-    {
-      "name": "sync-session.dataSourceRef",
-      "type": "java.lang.String",
-      "description": "DataSource bean name"
-    },
-    {
       "name": "sync-session.cookieName",
       "type": "java.lang.String",
       "description": "Cookie name",
-      "defaultValue": "SSESSIONID"
+      "defaultValue": "SSESSIONID",
+      "sourceType": "pers.clare.session.SyncSessionProperties"
     },
     {
       "name": "sync-session.timeout",
       "type": "java.lang.String",
       "description": "Session timeout",
-      "defaultValue": "30 minute"
+      "defaultValue": "30 minute",
+      "sourceType": "pers.clare.session.SyncSessionProperties"
     },
     {
       "name": "sync-session.topic",
       "type": "java.lang.String",
       "description": "Publish and subscribe topic",
-      "defaultValue": "sync.session"
+      "defaultValue": "sync.session",
+      "sourceType": "pers.clare.session.SyncSessionProperties"
     },
     {
-      "name": "sync-session.datasource.driver-class-name",
-      "providers": [
-        {
-          "name": "class-reference",
-          "parameters": {
-            "target": "java.sql.Driver"
-          }
-        }
-      ]
-    },
-    {
-      "name": "sync-session.datasource.type",
-      "type": "java.lang.Class<? extends javax.sql.DataSource>",
-      "description": "Fully qualified name of the connection pool implementation to use. By default, it is auto-detected from the classpath.",
-      "sourceType": "org.springframework.boot.autoconfigure.jdbc.DataSourceProperties"
-    },
-    {
-      "name": "sync-session.datasource.url",
-      "type": "java.lang.String",
-      "description": "JDBC URL of the database.",
-      "sourceType": "org.springframework.boot.autoconfigure.jdbc.DataSourceProperties"
-    },
-    {
-      "name": "sync-session.datasource.username",
-      "type": "java.lang.String",
-      "description": "Login username of the database.",
-      "sourceType": "org.springframework.boot.autoconfigure.jdbc.DataSourceProperties"
-    },
-    {
-      "name": "sync-session.datasource.password",
-      "type": "java.lang.String",
-      "description": "Login password of the database.",
-      "sourceType": "org.springframework.boot.autoconfigure.jdbc.DataSourceProperties"
-    },
-    {
-      "name": "sync-session.datasource.hikari",
-      "type": "com.zaxxer.hikari.HikariDataSource",
-      "sourceType": "org.springframework.boot.autoconfigure.jdbc.DataSourceConfiguration$Hikari",
-      "sourceMethod": "dataSource(org.springframework.boot.autoconfigure.jdbc.DataSourceProperties)"
-    },
-    {
-      "name": "sync-session.datasource.hikari.allow-pool-suspension",
-      "type": "java.lang.Boolean",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.auto-commit",
-      "type": "java.lang.Boolean",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.catalog",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.connection-init-sql",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.connection-test-query",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.connection-timeout",
-      "type": "java.lang.Long",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.data-source-class-name",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.data-source-j-n-d-i",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.data-source-properties",
-      "type": "java.util.Properties",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.driver-class-name",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.exception-override-class-name",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.health-check-properties",
-      "type": "java.util.Properties",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.health-check-registry",
-      "type": "java.lang.Object",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.idle-timeout",
-      "type": "java.lang.Long",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.initialization-fail-timeout",
-      "type": "java.lang.Long",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.isolate-internal-queries",
-      "type": "java.lang.Boolean",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.jdbc-url",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.leak-detection-threshold",
-      "type": "java.lang.Long",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.login-timeout",
+      "name": "sync-session.checkTimeoutWorkers",
       "type": "java.lang.Integer",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.max-lifetime",
-      "type": "java.lang.Long",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.maximum-pool-size",
-      "type": "java.lang.Integer",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.metric-registry",
-      "type": "java.lang.Object",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.metrics-tracker-factory",
-      "type": "com.zaxxer.hikari.metrics.MetricsTrackerFactory",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.minimum-idle",
-      "type": "java.lang.Integer",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.password",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.pool-name",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.read-only",
-      "type": "java.lang.Boolean",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.register-mbeans",
-      "type": "java.lang.Boolean",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.scheduled-executor",
-      "type": "java.util.concurrent.ScheduledExecutorService",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.schema",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.transaction-isolation",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.username",
-      "type": "java.lang.String",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
-    },
-    {
-      "name": "sync-session.datasource.hikari.validation-timeout",
-      "type": "java.lang.Long",
-      "sourceType": "com.zaxxer.hikari.HikariDataSource"
+      "description": "Check session timeout thread count. If the value is 0, do not check",
+      "defaultValue": "1",
+      "sourceType": "pers.clare.session.SyncSessionProperties"
     }
   ]
 }

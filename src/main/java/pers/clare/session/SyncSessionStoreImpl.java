@@ -23,6 +23,7 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
     private static final String find = "select create_time,last_access_time,username,attributes from `session` where id = ? and last_access_time >= ?";
     private static final String findUsername = "select username from `session` where id = ?";
     private static final String findAllInvalidate = "select id,username from `session` where last_access_time<?";
+    private static final String findAllId = "select id from `session` where username=?";
     private static final String insert = "insert into `session`(id,create_time,max_inactive_interval,last_access_time,username,attributes) values(?,?,?,?,?,?)";
     private static final String update = "update `session` set max_inactive_interval=?,last_access_time=?,username=?,attributes=? where id=?";
     private static final String delete = "delete from `session` where id=?";
@@ -37,8 +38,9 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
     @SuppressWarnings("unchecked")
     public SyncSessionStoreImpl(DataSource dataSource, Class<T> sessionClass) {
         this.dataSource = dataSource;
-        this.sessionClass = sessionClass;
+        this.sessionClass = sessionClass;;
     }
+
 
     public T find(String id, Long time) {
         Long createTime = null, lastAccessTime = null;
@@ -78,6 +80,22 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
                 return rs.getString(1);
             }
             return null;
+        } catch (SQLException e) {
+            throw new SyncSessionException(e);
+        }
+    }
+
+    @Override
+    public List<SyncSessionId> findAll(String username) {
+        try (Connection conn = this.dataSource.getConnection()) {
+            PreparedStatement ps = conn.prepareStatement(findAllId);
+            ps.setString(1, username);
+            ResultSet rs = ps.executeQuery();
+            List<SyncSessionId> result = new ArrayList<>();
+            while (rs.next()) {
+                result.add(new SyncSessionId(rs.getString(1), username));
+            }
+            return result;
         } catch (SQLException e) {
             throw new SyncSessionException(e);
         }
