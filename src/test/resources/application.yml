@@ -1,0 +1,34 @@
+init:
+  datasource:
+    url: jdbc:mysql://192.168.3.8:3305?characterEncoding=utf-8&rewriteBatchedStatements=true
+    username: root
+    password: '123456'
+    scripts:
+      - 'CREATE DATABASE IF NOT EXISTS `${test.database}`;'
+    drop-scripts:
+      - 'DROP DATABASE IF EXISTS `${test.database}`;'
+
+spring:
+  redis:
+    database: 11
+    host: 192.168.3.8
+    port: 6379
+    password: '5d8bx2b%4it5ky74&8zokgy1cve0d@81'
+  datasource:
+    url: 'jdbc:mysql://192.168.3.8:3305/${test.database}?characterEncoding=utf-8&rewriteBatchedStatements=true'
+    username: root
+    password: '123456'
+    hikari:
+      minimum-idle: 2
+      maximum-pool-size: 5
+      idle-timeout: 300000
+      max-lifetime: 1200000
+
+
+sync-session:
+  topic: sync.session.staff
+  timeout: 5s
+
+#logging:
+#  level:
+#    com.primestar: debug
