@@ -2,7 +2,7 @@ package pers.clare.session.exception;
 
 import java.sql.SQLException;
 
-public class SyncSessionException extends RuntimeException{
+public class SyncSessionException extends RuntimeException {
     private SQLException sqlException;
 
     public SyncSessionException(String message) {
@@ -11,7 +11,7 @@ public class SyncSessionException extends RuntimeException{
 
     public SyncSessionException(Throwable e) {
         super(e);
-        if(e instanceof SQLException){
+        if (e instanceof SQLException) {
             this.sqlException = (SQLException) e;
         }
     }

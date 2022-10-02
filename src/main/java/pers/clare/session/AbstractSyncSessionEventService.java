@@ -18,7 +18,7 @@ public abstract class AbstractSyncSessionEventService implements SyncSessionEven
         return runnable;
     }
 
-    protected void publishConnectedEvent(){
+    protected void publishConnectedEvent() {
         for (Runnable runnable : connectedListeners) {
             try {
                 runnable.run();

@@ -1,15 +1,10 @@
 package pers.clare.session;
 
+import pers.clare.session.exception.SyncSessionException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.util.ConcurrentReferenceHashMap;
-import pers.clare.session.constant.InvalidateBy;
-import pers.clare.session.exception.SyncSessionException;
-import pers.clare.session.listener.RequestSessionInvalidateListener;
-import pers.clare.session.util.DataSourceSchemaUtil;
-import pers.clare.session.util.SessionUtil;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
@@ -18,101 +13,60 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.*;
-import java.util.function.Function;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
-public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessionService<T>, InitializingBean, DisposableBean {
+public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOperatorServiceImpl<T> implements SyncSessionService<T>, InitializingBean, DisposableBean {
     private static final Logger log = LogManager.getLogger();
 
-    public static final String SPLIT = ",";
-    // session id 長度
-    public static final int ID_LENGTH = 32;
-
-    // 當 session id 重複時，嘗試重建次數
+    // retry create session count
     public static final int MAX_RETRY_INSERT = 5;
 
-
-    // 本地 session 緩存
-    private final ConcurrentMap<String, T> sessions = new ConcurrentHashMap<>();
-
-    // 阻止重复执行
-    private final ConcurrentMap<String, Long> invalidates = new ConcurrentReferenceHashMap<>();
-
-    private final List<RequestSessionInvalidateListener> invalidateListeners = new CopyOnWriteArrayList<>();
-
-    // 反建構的 session class
-    private final Class<T> sessionClass;
-
-    // session 實際管理
-    private final SyncSessionStore<T> store;
-
-    private final SyncSessionProperties properties;
-
-    private final SyncSessionEventService sessionEventService;
+    // refresh session to storage interval
+    private long updateInterval;
 
     private ScheduledExecutorService executor;
 
-    private String invalidateTopic;
-
     private String clearTopic;
 
-    private Function<? super String, ? extends T> findSession;
-
-    // session 最大存活時間
-    private long maxInactiveInterval;
-
-    // 本地緩存 session 時間
-    private long updateInterval;
-
-    @SuppressWarnings("unchecked")
     public SyncSessionServiceImpl(
             SyncSessionProperties properties
             , DataSource dataSource
             , SyncSessionEventService sessionEventService
     ) {
-        this.sessionClass = (Class<T>) SessionUtil.getSessionClass(this.getClass());
-        this.properties = properties;
-        this.store = new SyncSessionStoreImpl<>(dataSource, this.sessionClass);
-        try {
-            DataSourceSchemaUtil.init(dataSource);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        this.sessionEventService = sessionEventService;
-        if (properties.getCheckTimeoutWorkers() > 0) {
-            executor = Executors.newScheduledThreadPool(1);
-        }
+        super(properties, dataSource, sessionEventService);
     }
 
     @Override
     public void afterPropertiesSet() {
-        this.maxInactiveInterval = properties.getTimeout().toMillis();
-        this.updateInterval = maxInactiveInterval / 2;
-        // 更新 session 排程間隔
-        long delay = maxInactiveInterval / 10;
-        this.findSession = (id) -> {
-            long now = System.currentTimeMillis();
-            T session = store.find(id, now - maxInactiveInterval);
-            if (session != null) {
-                session.maxInactiveInterval = maxInactiveInterval;
-            }
-            return session;
-        };
+        store.initSchema();
+        findFromStore = this::findFromStore;
+        maxInactiveInterval = properties.getTimeout().toMillis();
 
-        // 監聽 session 清除或註銷事件
+        // listener session clear and invalidated event
         if (sessionEventService == null || properties.getTopic() == null) {
-            this.invalidateTopic = this.clearTopic = null;
+            invalidateTopic = clearTopic = null;
         } else {
-            this.invalidateTopic = properties.getTopic() + ".invalidate";
-            this.clearTopic = properties.getTopic() + ".clear";
+            invalidateTopic = properties.getTopic() + ".invalidate";
+            clearTopic = properties.getTopic() + ".clear";
             sessionEventService.onConnected(sessions::clear);
             sessionEventService.addListener(invalidateTopic, this::invalidateHandler);
             sessionEventService.addListener(clearTopic, this::clearHandler);
         }
-        if (executor != null) {
-            // 排程檢查 Session 狀態
-            executor.scheduleWithFixedDelay(this::batchUpdate, delay, delay, TimeUnit.MILLISECONDS);
+
+        // update session to storage interval
+        updateInterval = maxInactiveInterval / 2;
+
+        // update session job interval
+        long delay = maxInactiveInterval / 10;
+        if (delay < 1000) {
+            delay = 1000;
         }
+        // check session status scheduler
+        executor = Executors.newScheduledThreadPool(1);
+        executor.scheduleWithFixedDelay(this::batchUpdate, delay, delay, TimeUnit.MILLISECONDS);
+
     }
 
     @Override
@@ -122,30 +76,12 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
         log.info("{} executor shutdown...", "Session");
         try {
             if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
-                throw new InterruptedException("Session executor did not shut down gracefully within 30 seconds. Proceeding with forceful shutdown");
+                throw new InterruptedException("Session executor did not shutdown gracefully within 30 seconds. Proceeding with forceful shutdown.");
             }
-            log.info("Session executor shutdown complete");
+            log.info("Session executor shutdown complete.");
         } catch (InterruptedException e) {
             log.error(e.getMessage(), e);
         }
-    }
-
-    public SyncSessionProperties getProperties() {
-        return properties;
-    }
-
-    public T find(String id) {
-        if (id == null || id.length() != ID_LENGTH) return null;
-        T session = findFromLocal(id);
-        if (session != null) return session;
-        return sessions.computeIfAbsent(id, findSession);
-    }
-
-    T get(String id) {
-        if (id == null || id.length() != ID_LENGTH) return null;
-        T session = findFromLocal(id);
-        if (session != null) return session;
-        return sessions.computeIfAbsent(id, findSession);
     }
 
     public T create(
@@ -158,6 +94,7 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
             session.createTime = accessTime;
             session.maxInactiveInterval = maxInactiveInterval;
             session.lastAccessTime = accessTime;
+            session.effectiveTime = accessTime + maxInactiveInterval;
             session.lastUpdateAccessTime = accessTime;
             session.userAgent = userAgent;
             session.ip = ip;
@@ -177,19 +114,11 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
         return count;
     }
 
-    public void invalidate(T session) {
-        if (session == null) return;
-        invalidate(session.id);
-    }
-
-    public void invalidate(String id) {
-        if (id == null || id.length() != ID_LENGTH) return;
-        doInvalidate(id);
-    }
-
-    @Override
-    public void invalidateByUsername(String username) {
-        batchInvalidate(store.findAll(username));
+    public boolean keepalive(String id) {
+        T session = find(id);
+        if (session == null) return false;
+        session.setLastAccessTime(System.currentTimeMillis() + maxInactiveInterval);
+        return true;
     }
 
     private T doInsert(T session, int count) {
@@ -204,7 +133,7 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
                     && sqlException.getErrorCode() == 1062
                     && count < MAX_RETRY_INSERT
             ) {
-                // retry where uuid is exist
+                // retry where uuid is existed
                 return doInsert(session, count + 1);
             }
             throw e;
@@ -213,48 +142,14 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
         }
     }
 
-    private void invalidateHandler(String body) {
-        log.debug("invalidate event body:{}", body);
-        String[] array = body.split(SPLIT);
-        if (array.length < 2) return;
-        String id = array[0];
-        String username = array[1];
-        if (invalidates.remove(id) != null) return;
-        sessions.remove(id);
-        if (invalidateListeners.size() > 0) {
-            for (RequestSessionInvalidateListener invalidateListener : invalidateListeners) {
-                invalidateListener.onInvalidate(id, username, InvalidateBy.NOTICE);
-            }
-        }
-    }
-
     private void clearHandler(String body) {
         log.debug("clear event body:{}", body);
         T session = sessions.get(body);
         if (session == null) return;
-        // 減少多餘的移除行為
+        // avoid repeated operations
         if (session.refresh.isBlock()) return;
         log.debug("do clear {}", body);
         sessions.remove(body);
-    }
-
-    private void doInvalidate(String id) {
-        T session = sessions.remove(id);
-        String username;
-        if (session == null) {
-            username = store.findUsername(id);
-        } else {
-            session.valid = false;
-            username = session.getUsername();
-        }
-        if (store.delete(id) == 0) return;
-        triggerInvalidateEvent(id, username);
-    }
-
-    public RequestSessionInvalidateListener addInvalidateListeners(RequestSessionInvalidateListener listener) {
-        if (listener == null) return null;
-        invalidateListeners.add(listener);
-        return listener;
     }
 
     private void batchUpdate() {
@@ -262,7 +157,6 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
         try {
             long t = System.currentTimeMillis();
             long now = t;
-            long check = now - maxInactiveInterval;
             int originSize = sessions.size();
             if (originSize > 0) {
                 List<T> updates = new ArrayList<>(originSize);
@@ -270,7 +164,7 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
                 T session;
                 while (iterator.hasNext()) {
                     session = iterator.next();
-                    // 更新活躍 Session 的 lastAccessTime 到資料庫
+                    // update active session
                     if (session.lastAccessTime == session.lastUpdateAccessTime) continue;
                     if (session.lastAccessTime + updateInterval > now) {
                         session.lastUpdateAccessTime = session.lastAccessTime;
@@ -278,13 +172,12 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
                     }
                 }
 
-                // 更新
                 t = System.currentTimeMillis();
                 int count = store.updateLastAccessTime(updates);
                 log.debug("update session:{} real:{} {}ms", updates.size(), count, System.currentTimeMillis() - t);
             }
-            // 註銷
-            int invalidateCount = batchInvalidate(store.findAllInvalidate(check));
+
+            int invalidateCount = batchInvalidate(store.findAllInvalidate(now));
             log.debug("invalidate session:{} {}ms", invalidateCount, System.currentTimeMillis() - t);
             log.debug("batchUpdate {}>{} {}ms", originSize, sessions.size(), (System.currentTimeMillis() - now));
         } catch (Exception e) {
@@ -292,58 +185,9 @@ public class SyncSessionServiceImpl<T extends SyncSession> implements SyncSessio
         }
     }
 
-    private int batchInvalidate(List<SyncSessionId> ids) {
-        if (ids.size() == 0) return 0;
-        int count = 0;
-        String id;
-        for (SyncSessionId syncSessionId : ids) {
-            try {
-                id = syncSessionId.getId();
-                sessions.remove(id);
-                if (store.delete(id) == 0) continue;
-                count++;
-                triggerInvalidateEvent(id, syncSessionId.getUsername());
-            } catch (Exception e) {
-                log.error(e.getMessage(), e);
-            }
-        }
-        return count;
-    }
-
-    private void triggerInvalidateEvent(String id, String username) {
-        if (invalidateListeners.size() > 0) {
-            for (RequestSessionInvalidateListener invalidateListener : invalidateListeners) {
-                invalidateListener.onInvalidate(id, username, InvalidateBy.SELF);
-            }
-        }
-        notifyInvalidate(id, username);
-    }
-
-    private void notifyInvalidate(String id, String username) {
-        if (sessionEventService == null) return;
-        try {
-            invalidates.put(id, System.currentTimeMillis());
-            sessionEventService.send(invalidateTopic, id + SPLIT + username);
-        } catch (Exception e) {
-            log.error(e.getMessage());
-            invalidates.remove(id);
-        }
-    }
-
     private void notifyClear(String id) {
         if (sessionEventService == null) return;
         sessionEventService.send(clearTopic, id);
-    }
-
-    private T findFromLocal(String id) {
-        T session = sessions.get(id);
-        if (session == null) return null;
-        // 檢查是否超時
-        if (!session.valid || session.lastAccessTime + maxInactiveInterval < System.currentTimeMillis()) {
-            sessions.remove(id);
-            return null;
-        }
-        return session;
     }
 
     public static String generateUUIDString(UUID uuid) {

@@ -5,12 +5,13 @@ import java.util.Collection;
 import java.util.List;
 
 public interface SyncSessionStore<T extends SyncSession> {
+    void initSchema();
 
     T find(String id, Long time);
 
     String findUsername(String id);
 
-    List<SyncSessionId> findAll(String username);
+    List<SyncSessionId> findAll(String username, String... excludeSessionIds);
 
     List<SyncSessionId> findAllInvalidate(long time);
 

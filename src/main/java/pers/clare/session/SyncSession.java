@@ -18,6 +18,9 @@ public class SyncSession {
     long lastAccessTime;
 
     @JsonIgnore
+    long effectiveTime;
+
+    @JsonIgnore
     protected String username;
 
     @JsonIgnore
@@ -34,15 +37,16 @@ public class SyncSession {
     VolatileBlock refresh = new VolatileBlock(5000);
 
     protected void save() {
-        RequestCacheHolder.get().save();
+        if (id != null) RequestCacheHolder.get().save();
     }
 
     public void invalidate() {
-        RequestCacheHolder.get().invalidate();
+        RequestCacheHolder.get().invalidate(this);
     }
 
     void setLastAccessTime(long lastAccessTime) {
         this.lastAccessTime = lastAccessTime;
+        this.effectiveTime = lastAccessTime + maxInactiveInterval;
     }
 
     public void setUsername(String username) {
@@ -64,6 +68,10 @@ public class SyncSession {
 
     public long getLastAccessTime() {
         return lastAccessTime;
+    }
+
+    public long getEffectiveTime() {
+        return effectiveTime;
     }
 
     public String getUsername() {

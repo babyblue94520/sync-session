@@ -1,7 +1,5 @@
 package pers.clare.session;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 
@@ -10,23 +8,15 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+
+
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class SyncSessionFilter implements Filter {
-    private static final Logger log = LogManager.getLogger();
 
-    private final SyncSessionService<SyncSession> syncSessionService;
+    private final SyncSessionService<?> syncSessionService;
 
-    public SyncSessionFilter(SyncSessionService<SyncSession> syncSessionService) {
+    public SyncSessionFilter(SyncSessionService<?> syncSessionService) {
         this.syncSessionService = syncSessionService;
-    }
-
-    @Override
-    public void init(FilterConfig filterConfig) {
-        log.info(getClass().getSimpleName() + " startup");
-    }
-
-    @Override
-    public void destroy() {
     }
 
     @Override
@@ -35,11 +25,19 @@ public class SyncSessionFilter implements Filter {
             , ServletResponse res
             , FilterChain chain
     ) throws IOException, ServletException {
-        RequestCache<SyncSession> requestCache = RequestCacheHolder.init((HttpServletRequest) req, (HttpServletResponse) res, syncSessionService);
+        @SuppressWarnings("unused")
+        RequestCache<?> requestCache = RequestCacheHolder.init((HttpServletRequest) req, (HttpServletResponse) res, syncSessionService);
         try {
             chain.doFilter(req, res);
+            if(req.isAsyncStarted()){
+                req.getAsyncContext().addListener(new SessionAsyncListener(requestCache));
+            }
         } finally {
-            requestCache.refreshSession();
+            if(!req.isAsyncStarted()){
+                requestCache.refreshSession();
+            }
+            RequestCacheHolder.clear();
         }
     }
+
 }

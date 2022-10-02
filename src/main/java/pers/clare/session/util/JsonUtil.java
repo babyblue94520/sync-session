@@ -14,7 +14,8 @@ import java.lang.reflect.Type;
 @SuppressWarnings("unused")
 public class JsonUtil {
 
-    private JsonUtil(){}
+    private JsonUtil() {
+    }
 
     /**
      * 反序列化
@@ -24,7 +25,7 @@ public class JsonUtil {
      * @return the string
      */
     public static <T> T decode(String json, TypeReference<T> valueTypeRef)
-            throws  IOException {
+            throws IOException {
         if (json == null) return null;
         return create().readValue(json, valueTypeRef);
     }

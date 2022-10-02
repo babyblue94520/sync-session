@@ -2,10 +2,11 @@ package pers.clare.session;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import pers.clare.session.exception.SyncSessionException;
+import pers.clare.session.util.DataSourceSchemaUtil;
+import pers.clare.session.util.JsonUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import pers.clare.session.exception.SyncSessionException;
-import pers.clare.session.util.JsonUtil;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -20,14 +21,14 @@ import java.util.List;
 public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionStore<T> {
     private static final Logger log = LogManager.getLogger();
 
-    private static final String find = "select create_time,last_access_time,username,attributes from `session` where id = ? and last_access_time >= ?";
+    private static final String find = "select create_time,max_inactive_interval,last_access_time,effective_time,username,attributes from `session` where id = ? and effective_time >= ?";
     private static final String findUsername = "select username from `session` where id = ?";
-    private static final String findAllInvalidate = "select id,username from `session` where last_access_time<?";
+    private static final String findAllInvalidate = "select id,username from `session` where effective_time<?";
     private static final String findAllId = "select id from `session` where username=?";
-    private static final String insert = "insert into `session`(id,create_time,max_inactive_interval,last_access_time,username,attributes) values(?,?,?,?,?,?)";
-    private static final String update = "update `session` set max_inactive_interval=?,last_access_time=?,username=?,attributes=? where id=?";
+    private static final String insert = "insert into `session`(id,create_time,max_inactive_interval,last_access_time,effective_time,username,attributes) values(?,?,?,?,?,?,?)";
+    private static final String update = "update `session` set last_access_time=?,effective_time=?,username=?,attributes=? where id=?";
     private static final String delete = "delete from `session` where id=?";
-    private static final String updateLastAccessTime = "update `session` set last_access_time=? where id=? and last_access_time<?";
+    private static final String updateLastAccessTime = "update `session` set last_access_time=?,effective_time=? where id=? and effective_time<?";
 
     private final DataSource dataSource;
 
@@ -35,15 +36,21 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
 
     private final Class<T> sessionClass;
 
-    @SuppressWarnings("unchecked")
     public SyncSessionStoreImpl(DataSource dataSource, Class<T> sessionClass) {
         this.dataSource = dataSource;
-        this.sessionClass = sessionClass;;
+        this.sessionClass = sessionClass;
     }
 
+    public void initSchema() {
+        try {
+            DataSourceSchemaUtil.init(dataSource);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
     public T find(String id, Long time) {
-        Long createTime = null, lastAccessTime = null;
+        Long createTime = null, maxInactiveInterval = null, lastAccessTime = null, effectiveTime = null;
         String username = null, attributes = null;
         try (Connection conn = this.dataSource.getConnection()) {
             PreparedStatement ps = conn.prepareStatement(find);
@@ -52,9 +59,11 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
                 createTime = rs.getLong(1);
-                lastAccessTime = rs.getLong(2);
-                username = rs.getString(3);
-                attributes = rs.getString(4);
+                maxInactiveInterval = rs.getLong(2);
+                lastAccessTime = rs.getLong(3);
+                effectiveTime = rs.getLong(4);
+                username = rs.getString(5);
+                attributes = rs.getString(6);
             }
         } catch (SQLException e) {
             throw new SyncSessionException(e);
@@ -65,7 +74,9 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
             T session = decodeAttributes(attributes);
             session.id = id;
             session.createTime = createTime;
+            session.maxInactiveInterval = maxInactiveInterval;
             session.lastAccessTime = lastAccessTime;
+            session.effectiveTime = effectiveTime;
             session.username = username;
             return session;
         }
@@ -86,10 +97,26 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
     }
 
     @Override
-    public List<SyncSessionId> findAll(String username) {
+    public List<SyncSessionId> findAll(String username, String... excludeSessionIds) {
         try (Connection conn = this.dataSource.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement(findAllId);
-            ps.setString(1, username);
+            PreparedStatement ps;
+            if (excludeSessionIds.length > 0) {
+                StringBuilder sql = new StringBuilder(findAllId);
+                sql.append(" and id not in (?");
+                for (int i = 1; i < excludeSessionIds.length; i++) {
+                    sql.append(',').append('?');
+                }
+                sql.append(')');
+                ps = conn.prepareStatement(sql.toString());
+                ps.setString(1, username);
+                int index = 1;
+                for (String excludeSessionId : excludeSessionIds) {
+                    ps.setString(++index, excludeSessionId);
+                }
+            } else {
+                ps = conn.prepareStatement(findAllId);
+                ps.setString(1, username);
+            }
             ResultSet rs = ps.executeQuery();
             List<SyncSessionId> result = new ArrayList<>();
             while (rs.next()) {
@@ -124,8 +151,9 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
             ps.setLong(2, session.createTime);
             ps.setLong(3, session.maxInactiveInterval);
             ps.setLong(4, session.lastAccessTime);
-            ps.setString(5, session.username);
-            ps.setString(6, attributes);
+            ps.setLong(5, session.effectiveTime);
+            ps.setString(6, session.username);
+            ps.setString(7, attributes);
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new SyncSessionException(e);
@@ -136,8 +164,8 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
         String attributes = encodeAttributes(session);
         try (Connection conn = this.dataSource.getConnection()) {
             PreparedStatement ps = conn.prepareStatement(update);
-            ps.setLong(1, session.maxInactiveInterval);
-            ps.setLong(2, session.lastAccessTime);
+            ps.setLong(1, session.lastAccessTime);
+            ps.setLong(2, session.effectiveTime);
             ps.setString(3, session.username);
             ps.setString(4, attributes);
             ps.setString(5, session.id);
@@ -164,8 +192,9 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
             for (T session : list) {
                 try {
                     ps.setLong(1, session.lastAccessTime);
-                    ps.setString(2, session.id);
-                    ps.setLong(3, session.lastAccessTime);
+                    ps.setLong(2, session.effectiveTime);
+                    ps.setString(3, session.id);
+                    ps.setLong(4, session.effectiveTime);
                     count += ps.executeUpdate();
                 } catch (Exception e) {
                     log.warn(e.getMessage(), e);

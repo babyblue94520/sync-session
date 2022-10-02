@@ -1,5 +1,7 @@
 package pers.clare.session;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.util.StringUtils;
@@ -7,40 +9,73 @@ import org.springframework.util.StringUtils;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+
+import static java.util.Locale.*;
 
 @SuppressWarnings("unused")
 public class RequestCache<T extends SyncSession> {
-    private static final Set<String> ipHeaderNames = new HashSet<>();
+    private static final Logger log = LogManager.getLogger();
 
-    public static final Set<Locale> supportLocales = new HashSet<>();
+    private static final ConcurrentMap<String, String> ipHeaderNames = new ConcurrentHashMap<>();
+
+    private static final ConcurrentMap<Locale, Locale> supportLocales = new ConcurrentHashMap<>();
+
+    private static Locale defaultLocale = Locale.getDefault();
 
     static {
-        supportLocales.add(Locale.ENGLISH);
-        supportLocales.add(Locale.TRADITIONAL_CHINESE);
-        supportLocales.add(Locale.SIMPLIFIED_CHINESE);
-
-        ipHeaderNames.add("x-forwarded-for");
-        ipHeaderNames.add("Proxy-Client-IP");
-        ipHeaderNames.add("WL-Proxy-Client-IP");
-        ipHeaderNames.add("X-Real-IP");
+        addSupportLocale(ENGLISH, TRADITIONAL_CHINESE, SIMPLIFIED_CHINESE);
+        addIpHeader("x-forwarded-for", "Proxy-Client-IP", "WL-Proxy-Client-IP", "X-Real-IP");
     }
 
-    public synchronized static void addIpHeader(String name) {
-        ipHeaderNames.add(name);
+    public static void setDefaultLocale(Locale locale) {
+        if (locale == null) return;
+        defaultLocale = locale;
     }
 
-    public synchronized static void addSupportLocale(Locale locale) {
-        supportLocales.add(locale);
+    public static void addIpHeader(String... names) {
+        for (String name : names) {
+            ipHeaderNames.put(name, name);
+        }
+    }
+
+    public static void removeIpHeader(String... names) {
+        for (String name : names) {
+            ipHeaderNames.remove(name, name);
+        }
+    }
+
+    public static void addSupportLocale(Locale... locales) {
+        for (Locale locale : locales) {
+            supportLocales.computeIfAbsent(locale, (key) -> key);
+        }
+    }
+
+    public static void removeSupportLocale(Locale... locales) {
+        for (Locale locale : locales) {
+            supportLocales.remove(locale);
+        }
     }
 
     public static Locale getLocale(String lang) {
-        return Locale.lookup(Locale.LanguageRange.parse(lang), supportLocales);
+        if (lang != null) {
+            try {
+                return Locale.lookup(Locale.LanguageRange.parse(lang), supportLocales.keySet());
+            } catch (Exception e) {
+                log.error(e);
+            }
+        }
+        return defaultLocale;
     }
 
     public static String getClientIp(HttpServletRequest request) {
         String clientIp;
-        for (String name : ipHeaderNames) {
+        for (String name : ipHeaderNames.keySet()) {
             clientIp = getFirstIp(request.getHeader(name));
             if (clientIp != null) {
                 return clientIp;
@@ -120,7 +155,6 @@ public class RequestCache<T extends SyncSession> {
         updateSession = true;
     }
 
-
     RequestCache() {
     }
 
@@ -140,6 +174,17 @@ public class RequestCache<T extends SyncSession> {
         removeSessionCookie();
     }
 
+    void invalidate(T session) {
+        if (session == null) return;
+        session.valid = false;
+        if (this.session == null) this.session = getSession();
+        if (this.session != null && Objects.equals(this.session.id, session.id)) {
+            removeSessionCookie();
+            this.session.valid = false;
+        }
+        sessionService.invalidate(session);
+    }
+
     public void refreshSession() {
         if (session == null) getSession();
         if (session == null) return;
@@ -152,27 +197,6 @@ public class RequestCache<T extends SyncSession> {
                 updateSession = false;
             }
         }
-    }
-
-    public void finish() {
-        this.request = null;
-        this.response = null;
-        this.sessionService = null;
-        this.accessTime = null;
-        this.remoteIp = null;
-        this.clientIp = null;
-        this.userAgent = null;
-        this.origin = null;
-        this.url = null;
-        this.referer = null;
-        this.lang = null;
-        this.locale = null;
-        this.parametersMap = null;
-        this.parameterMap = null;
-        this.session = null;
-        this.sessionCookie = null;
-        this.ping = false;
-        this.updateSession = false;
     }
 
     public void setPing(boolean ping) {
@@ -287,6 +311,10 @@ public class RequestCache<T extends SyncSession> {
         return parameterMap;
     }
 
+    public String getHeader(String name) {
+        return request.getHeader(name);
+    }
+
     public String getClientIp() {
         if (clientIp == null) {
             clientIp = getClientIp(request);
@@ -322,17 +350,9 @@ public class RequestCache<T extends SyncSession> {
         return referer;
     }
 
-    public String getLang() {
-        if (lang == null) {
-            lang = request.getHeader(HttpHeaders.ACCEPT_LANGUAGE);
-        }
-        return lang;
-    }
-
     public Locale getLocale() {
         if (locale != null) return locale;
-        if (getLang() == null) return null;
-        return locale = getLocale(lang);
+        return (locale = getLocale(request.getHeader(HttpHeaders.ACCEPT_LANGUAGE)));
     }
 
     public void addCookie(ResponseCookie.ResponseCookieBuilder cookieBuilder) {

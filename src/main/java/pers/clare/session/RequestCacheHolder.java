@@ -6,11 +6,14 @@ import javax.servlet.http.HttpServletResponse;
 @SuppressWarnings("unused")
 public class RequestCacheHolder {
 
-    RequestCacheHolder() {
-    }
+    private static ThreadLocal<RequestCache<? extends SyncSession>> cache = new ThreadLocal<>();
 
-    private static final ThreadLocal<RequestCache<? extends SyncSession>> cache =
-            new NamedThreadLocal<>("Request Cache Holder");
+    public static void setCache(ThreadLocal<RequestCache<? extends SyncSession>> cache){
+        RequestCacheHolder.cache = cache;
+    }
+    public static void set(RequestCache<? extends SyncSession> requestCache) {
+        cache.set(requestCache);
+    }
 
     public static <T extends SyncSession> RequestCache<T> init(
             HttpServletRequest request
@@ -24,31 +27,18 @@ public class RequestCacheHolder {
     }
 
     @SuppressWarnings("unchecked")
-    public static RequestCache<SyncSession> get() {
-        RequestCache<SyncSession> req = (RequestCache<SyncSession>) cache.get();
-        if (req == null) throw new RuntimeException("RequestCacheHolder not init");
-        return req;
-    }
-
-    @SuppressWarnings("unchecked")
-    public static <T extends SyncSession> RequestCache<T> get(Class<T> clazz) {
+    public static <T extends SyncSession> RequestCache<T> get() {
         RequestCache<T> req = (RequestCache<T>) cache.get();
         if (req == null) throw new RuntimeException("RequestCacheHolder not init");
         return req;
     }
 
-    static class NamedThreadLocal<T> extends ThreadLocal<T> {
-        private final String name;
+    public static void clear() {
+        cache.remove();
+    }
 
-        public NamedThreadLocal(String name) {
-            if (name == null) throw new IllegalArgumentException("Name must not be empty");
-            this.name = name;
-        }
 
-        @Override
-        public String toString() {
-            return this.name;
-        }
+    private RequestCacheHolder() {
     }
 
 }
