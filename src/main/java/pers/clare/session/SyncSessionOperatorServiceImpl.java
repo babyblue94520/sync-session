@@ -1,12 +1,13 @@
 package pers.clare.session;
 
-import pers.clare.session.constant.InvalidateBy;
-import pers.clare.session.listener.SyncSessionInvalidateListener;
-import pers.clare.session.util.SessionUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.util.ConcurrentReferenceHashMap;
+import pers.clare.session.constant.InvalidateBy;
+import pers.clare.session.constant.EventType;
+import pers.clare.session.listener.SyncSessionInvalidateListener;
+import pers.clare.session.util.SessionUtil;
 
 import javax.sql.DataSource;
 import java.util.List;
@@ -18,7 +19,7 @@ import java.util.function.Function;
 public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements SyncSessionOperatorService<T>, InitializingBean {
     private static final Logger log = LogManager.getLogger();
 
-    public static final String SPLIT = ",";
+    public static final String SPLIT = "\n";
 
     // session id length
     public static final int ID_LENGTH = 32;
@@ -46,8 +47,6 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
     // session max inactive interval
     protected long maxInactiveInterval;
 
-    protected String invalidateTopic;
-
     @SuppressWarnings("unchecked")
     public SyncSessionOperatorServiceImpl(
             SyncSessionProperties properties
@@ -66,11 +65,8 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         maxInactiveInterval = properties.getTimeout().toMillis();
 
         // listener session invalidated event
-        if (sessionEventService == null || properties.getTopic() == null) {
-            invalidateTopic = null;
-        } else {
-            invalidateTopic = properties.getTopic() + ".invalidate";
-            sessionEventService.addListener(invalidateTopic, this::invalidateHandler);
+        if (sessionEventService != null) {
+            sessionEventService.addListener(this::eventHandler);
         }
     }
 
@@ -83,6 +79,23 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         T session = findFromLocal(id);
         if (session != null) return session;
         return sessions.computeIfAbsent(id, findFromStore);
+    }
+
+    protected T findFromLocal(String id) {
+        T session = sessions.get(id);
+        if (session == null) return null;
+        if (session.valid
+                && session.effectiveTime > System.currentTimeMillis()
+                && (sessionEventService == null || sessionEventService.isAvailable())
+        ) {
+            return session;
+        }
+        sessions.remove(id);
+        return null;
+    }
+
+    protected T findFromStore(String id) {
+        return store.find(id, System.currentTimeMillis());
     }
 
     public void invalidate(T session) {
@@ -99,20 +112,6 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         batchInvalidate(store.findAll(username, excludeSessionIds));
     }
 
-    protected void invalidateHandler(String body) {
-        log.debug("invalidate event body:{}", body);
-        String[] array = body.split(SPLIT);
-        if (array.length < 2) return;
-        String id = array[0];
-        String username = array[1];
-        if (invalidates.remove(id) != null) return;
-        sessions.remove(id);
-        if (invalidateListeners.size() > 0) {
-            for (SyncSessionInvalidateListener invalidateListener : invalidateListeners) {
-                invalidateListener.onInvalidate(id, username, InvalidateBy.NOTICE);
-            }
-        }
-    }
 
     protected void doInvalidate(String id) {
         T session = sessions.remove(id);
@@ -125,6 +124,32 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         }
         if (store.delete(id) == 0) return;
         triggerInvalidateEvent(id, username);
+    }
+
+    protected void triggerInvalidateEvent(String id, String username) {
+        if (invalidateListeners.size() > 0) {
+            for (SyncSessionInvalidateListener invalidateListener : invalidateListeners) {
+                invalidateListener.onInvalidate(id, username, InvalidateBy.SELF);
+            }
+        }
+        if (sessionEventService == null) return;
+        try {
+            invalidates.put(id, System.currentTimeMillis());
+            send(EventType.INVALIDATE, id, username);
+        } catch (Exception e) {
+            invalidates.remove(id);
+            log.error(e.getMessage());
+        }
+    }
+
+    private void invalidateHandler(String id, String username) {
+        if (invalidates.remove(id) != null) return;
+        sessions.remove(id);
+        if (invalidateListeners.size() > 0) {
+            for (SyncSessionInvalidateListener invalidateListener : invalidateListeners) {
+                invalidateListener.onInvalidate(id, username, InvalidateBy.NOTICE);
+            }
+        }
     }
 
     public SyncSessionInvalidateListener addInvalidateListeners(SyncSessionInvalidateListener listener) {
@@ -151,37 +176,42 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         return count;
     }
 
-    protected void triggerInvalidateEvent(String id, String username) {
-        if (invalidateListeners.size() > 0) {
-            for (SyncSessionInvalidateListener invalidateListener : invalidateListeners) {
-                invalidateListener.onInvalidate(id, username, InvalidateBy.SELF);
-            }
-        }
-        notifyInvalidate(id, username);
-    }
 
-    protected void notifyInvalidate(String id, String username) {
+    public void clear(T session) {
+        sessions.remove(session.id);
         if (sessionEventService == null) return;
-        try {
-            invalidates.put(id, System.currentTimeMillis());
-            sessionEventService.send(invalidateTopic, id + SPLIT + username);
-        } catch (Exception e) {
-            invalidates.remove(id);
-            log.error(e.getMessage());
-        }
+        session.refresh.block();
+        send(EventType.CLEAR, session.id, session.username);
     }
 
-    protected T findFromLocal(String id) {
+    private void clearHandler(String id, String username) {
         T session = sessions.get(id);
-        if (session == null) return null;
-        if (!session.valid || session.effectiveTime < System.currentTimeMillis()) {
-            sessions.remove(id);
-            return null;
-        }
-        return session;
+        if (session == null) return;
+        // avoid repeated operations
+        if (session.refresh.isBlock()) return;
+        log.debug("do clear {}", id);
+        sessions.remove(id);
     }
 
-    protected T findFromStore(String id) {
-        return store.find(id, System.currentTimeMillis());
+    private void send(String type, String id, String username) {
+        if (sessionEventService == null) return;
+        sessionEventService.send(type + SPLIT + id + SPLIT + username);
+    }
+
+    private void eventHandler(String body) {
+        log.debug("event body:{}", body);
+        String[] array = body.split(SPLIT);
+        if (array.length != 3) return;
+        String type = array[0];
+        String id = array[1];
+        String username = array[2];
+        switch (type) {
+            case EventType.INVALIDATE:
+                invalidateHandler(id, username);
+                break;
+            case EventType.CLEAR:
+                clearHandler(id, username);
+                break;
+        }
     }
 }

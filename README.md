@@ -33,7 +33,7 @@ Regularly update lastAccessTime to reduce the load of RDBS and improve concurren
     * Cases of using redis.
     */
     @Service
-    public class SyncSessionEventServiceImpl extends AbstractSyncSessionEventService implements InitializingBean {
+    public class SyncSessionEventServiceImpl extends SyncSessionEventService implements InitializingBean {
         @Autowired
         private StringRedisTemplate stringRedisTemplate;
 
@@ -43,6 +43,8 @@ Regularly update lastAccessTime to reduce the load of RDBS and improve concurren
         @Autowired
         private DefaultClientResources defaultClientResources;
 
+        private final String topic = "session";
+   
         @Override
         public void afterPropertiesSet() {
             defaultClientResources.eventBus().get().subscribe((event) -> {
@@ -53,17 +55,15 @@ Regularly update lastAccessTime to reduce the load of RDBS and improve concurren
         }
 
         @Override
-        public String send(String topic, String body) {
-            stringRedisTemplate.convertAndSend(topic, body);
-            return topic;
+        public void send(String body) {
+            stringRedisTemplate.convertAndSend(body);
         }
 
         @Override
-        public Consumer<String> addListener(String topic, Consumer<String> listener) {
+        public void addListener(Consumer<String> listener) {
             listenerContainer.addMessageListener((message, pattern) -> {
                 listener.accept(new String(message.getBody()));
             }, new PatternTopic(topic));
-            return listener;
         }
     }
     ```
@@ -113,7 +113,6 @@ Regularly update lastAccessTime to reduce the load of RDBS and improve concurren
 sync-session:
   cookie-name: SSESSIONID
   timeout: 30m
-  topic: sync.session
 ```
 
 ### **Session invalidate listener**
@@ -212,11 +211,8 @@ Manage other system sessions by central management system.
        public SyncSessionOperatorService<SyncSession> otherSyncSessionOperatorService(
               DataSource dataSource // other session storage
                , SyncSessionEventService sessionEventService
-               , @Value("${other.sync-session.topic:sync.session.other}") String topic
        ) {
-           SyncSessionProperties properties = new SyncSessionProperties();
-           properties.setTopic(topic);
-           return new SyncSessionOperatorService<>(properties, dataSource, sessionEventService);
+           return new SyncSessionOperatorService<>(new SyncSessionProperties(), dataSource, sessionEventService);
        }
    }
    ```

@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 @TestInstance(PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Import({SessionConfig.class, SessionListenerConfig.class})
-@SpringBootTest
+@SpringBootTest(args = {"--listen=true"})
 class SessionTest {
     private static final List<String> ports = new ArrayList<>();
 
@@ -68,6 +68,7 @@ class SessionTest {
             applications.add(SpringApplication.run(ApplicationTest2.class
                     , "--server.port=" + port
                     , "--h2.port=9090"
+                    , "--listen=true"
             ));
         }
     }
@@ -256,7 +257,6 @@ class SessionTest {
         Thread.sleep(50);
         assertEquals(ports.size() + 1, jdbcTemplate.queryForObject("select count(*) from log", Long.class));
         assertEquals(1, jdbcTemplate.queryForObject("select count(*) from log where type = ?", Long.class, InvalidateBy.SELF));
-
     }
 
     String result(String port, String path, String method) {

@@ -28,8 +28,6 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
 
     private ScheduledExecutorService executor;
 
-    private String clearTopic;
-
     public SyncSessionServiceImpl(
             SyncSessionProperties properties
             , DataSource dataSource
@@ -40,20 +38,8 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
 
     @Override
     public void afterPropertiesSet() {
+        super.afterPropertiesSet();
         store.initSchema();
-        findFromStore = this::findFromStore;
-        maxInactiveInterval = properties.getTimeout().toMillis();
-
-        // listener session clear and invalidated event
-        if (sessionEventService == null || properties.getTopic() == null) {
-            invalidateTopic = clearTopic = null;
-        } else {
-            invalidateTopic = properties.getTopic() + ".invalidate";
-            clearTopic = properties.getTopic() + ".clear";
-            sessionEventService.onConnected(sessions::clear);
-            sessionEventService.addListener(invalidateTopic, this::invalidateHandler);
-            sessionEventService.addListener(clearTopic, this::clearHandler);
-        }
 
         // update session to storage interval
         updateInterval = maxInactiveInterval / 2;
@@ -66,7 +52,6 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
         // check session status scheduler
         executor = Executors.newScheduledThreadPool(1);
         executor.scheduleWithFixedDelay(this::batchUpdate, delay, delay, TimeUnit.MILLISECONDS);
-
     }
 
     @Override
@@ -108,8 +93,7 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
         if (session == null) return 0;
         int count = store.update(session);
         if (count > 0) {
-            session.refresh.block();
-            notifyClear(session.id);
+            clear(session);
         }
         return count;
     }
@@ -140,16 +124,6 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
         } catch (Exception e) {
             throw new SyncSessionException(e);
         }
-    }
-
-    private void clearHandler(String body) {
-        log.debug("clear event body:{}", body);
-        T session = sessions.get(body);
-        if (session == null) return;
-        // avoid repeated operations
-        if (session.refresh.isBlock()) return;
-        log.debug("do clear {}", body);
-        sessions.remove(body);
     }
 
     private void batchUpdate() {
@@ -183,11 +157,6 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
         } catch (Exception e) {
             log.error(e.getMessage());
         }
-    }
-
-    private void notifyClear(String id) {
-        if (sessionEventService == null) return;
-        sessionEventService.send(clearTopic, id);
     }
 
     public static String generateUUIDString(UUID uuid) {

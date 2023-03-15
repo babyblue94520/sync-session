@@ -93,7 +93,7 @@ class PerformanceTest {
         });
 
         int size = cookieManagerMap.size();
-        PerformanceUtil.byCount(10000, (index) -> {
+        PerformanceUtil.byCount(50000, (index) -> {
             long key = index % size + 1;
             CookieManager cm = cookieManagerMap.get(key);
             String token = URLRequest.build(toUrl(getRandomPort(), "/token"))

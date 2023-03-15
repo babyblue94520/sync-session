@@ -19,11 +19,6 @@ public class SyncSessionProperties {
      */
     private Duration timeout = Duration.ofMinutes(30);
 
-    /**
-     * Publish and subscribe topic
-     */
-    private String topic = "sync.session";
-
     public String getCookieName() {
         return cookieName;
     }
@@ -38,13 +33,5 @@ public class SyncSessionProperties {
 
     public void setTimeout(Duration timeout) {
         this.timeout = timeout;
-    }
-
-    public String getTopic() {
-        return topic;
-    }
-
-    public void setTopic(String topic) {
-        this.topic = topic;
     }
 }

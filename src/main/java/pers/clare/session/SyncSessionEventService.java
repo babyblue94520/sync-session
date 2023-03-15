@@ -4,9 +4,18 @@ import java.util.function.Consumer;
 
 public interface SyncSessionEventService {
 
-    Runnable onConnected(Runnable runnable);
+    /**
+     * Send session clear events.
+     */
+    void send( String body);
 
-    String send(String topic, String body);
+    /**
+     * Listen for session clear events.
+     */
+    void addListener( Consumer<String> listener);
 
-    Consumer<String> addListener(String topic, Consumer<String> listener);
+    /*
+     * Affects whether the session manage can be cached.
+     */
+    boolean isAvailable();
 }
