@@ -12,8 +12,9 @@ public class SessionAsyncListener implements AsyncListener {
 
     @Override
     public void onComplete(AsyncEvent asyncEvent) {
-        this.requestCache.refreshSession();
-        this.requestCache = null;
+        if (requestCache == null) return;
+        requestCache.refreshSession();
+        requestCache = null;
     }
 
     @Override

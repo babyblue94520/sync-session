@@ -2,6 +2,7 @@ package pers.clare.session;
 
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
@@ -11,7 +12,7 @@ import java.io.IOException;
 
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
-public class SyncSessionFilter implements Filter {
+public class SyncSessionFilter extends OncePerRequestFilter {
 
     private final SyncSessionService<?> syncSessionService;
 
@@ -20,24 +21,30 @@ public class SyncSessionFilter implements Filter {
     }
 
     @Override
-    public void doFilter(
-            ServletRequest req
-            , ServletResponse res
-            , FilterChain chain
-    ) throws IOException, ServletException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+
         @SuppressWarnings("unused")
-        RequestCache<?> requestCache = RequestCacheHolder.init((HttpServletRequest) req, (HttpServletResponse) res, syncSessionService);
+        RequestCache<?> requestCache = RequestCacheHolder.init(request, response, syncSessionService);
         try {
-            chain.doFilter(req, res);
-            if(req.isAsyncStarted()){
-                req.getAsyncContext().addListener(new SessionAsyncListener(requestCache));
+            filterChain.doFilter(request, response);
+            if(request.isAsyncStarted()){
+                request.getAsyncContext().addListener(new SessionAsyncListener(requestCache));
             }
         } finally {
-            if(!req.isAsyncStarted()){
+            if(!request.isAsyncStarted()){
                 requestCache.refreshSession();
             }
             RequestCacheHolder.clear();
         }
     }
 
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
+    @Override
+    protected boolean shouldNotFilterErrorDispatch() {
+        return false;
+    }
 }
