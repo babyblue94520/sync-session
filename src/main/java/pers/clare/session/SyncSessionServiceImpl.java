@@ -151,12 +151,21 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
                 log.debug("update session:{} real:{} {}ms", updates.size(), count, System.currentTimeMillis() - t);
             }
 
-            int invalidateCount = batchInvalidate(store.findAllInvalidate(now));
+            long invalidateCount = batchInvalidate(now);
             log.debug("invalidate session:{} {}ms", invalidateCount, System.currentTimeMillis() - t);
             log.debug("batchUpdate {}>{} {}ms", originSize, sessions.size(), (System.currentTimeMillis() - now));
         } catch (Exception e) {
             log.error(e.getMessage());
         }
+    }
+
+    public long batchInvalidate(Long time) {
+        long count = 0;
+        List<SyncSessionId> ids;
+        while ((ids = store.findAllInvalidate(time, properties.getBatchInvalidateCount())).size() > 0) {
+            count += batchInvalidate(ids);
+        }
+        return count;
     }
 
     public static String generateUUIDString(UUID uuid) {

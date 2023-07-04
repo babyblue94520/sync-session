@@ -22,8 +22,8 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
     private static final Logger log = LogManager.getLogger();
 
     private static final String find = "select create_time,max_inactive_interval,last_access_time,effective_time,username,attributes from `session` where id = ? and effective_time >= ?";
-    private static final String findUsername = "select username from `session` where id = ?";
-    private static final String findAllInvalidate = "select id,username from `session` where effective_time<?";
+    private static final String findUsername = "select username from `session` where id = ? ";
+    private static final String findAllInvalidate = "select id,username from `session` where effective_time<? limit ?";
     private static final String findAllId = "select id from `session` where username=?";
     private static final String insert = "insert into `session`(id,create_time,max_inactive_interval,last_access_time,effective_time,username,attributes) values(?,?,?,?,?,?,?)";
     private static final String update = "update `session` set last_access_time=?,effective_time=?,username=?,attributes=? where id=?";
@@ -128,12 +128,14 @@ public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionS
         }
     }
 
-    public List<SyncSessionId> findAllInvalidate(long time) {
+    public List<SyncSessionId> findAllInvalidate(Long time, Long count) {
+        List<SyncSessionId> result = new ArrayList<>();
+        if (time == null || count == null) return result;
         try (Connection conn = this.dataSource.getConnection()) {
             PreparedStatement ps = conn.prepareStatement(findAllInvalidate);
             ps.setLong(1, time);
+            ps.setLong(2, count);
             ResultSet rs = ps.executeQuery();
-            List<SyncSessionId> result = new ArrayList<>();
             while (rs.next()) {
                 result.add(new SyncSessionId(rs.getString(1), rs.getString(2)));
             }

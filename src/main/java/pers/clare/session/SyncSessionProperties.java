@@ -19,6 +19,8 @@ public class SyncSessionProperties {
      */
     private Duration timeout = Duration.ofMinutes(30);
 
+    private Long batchInvalidateCount = 100L;
+
     public String getCookieName() {
         return cookieName;
     }
@@ -33,5 +35,13 @@ public class SyncSessionProperties {
 
     public void setTimeout(Duration timeout) {
         this.timeout = timeout;
+    }
+
+    public Long getBatchInvalidateCount() {
+        return batchInvalidateCount;
+    }
+
+    public void setBatchInvalidateCount(Long batchInvalidateCount) {
+        this.batchInvalidateCount = batchInvalidateCount;
     }
 }

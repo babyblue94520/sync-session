@@ -158,9 +158,9 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         return listener;
     }
 
-    protected int batchInvalidate(List<SyncSessionId> ids) {
+    protected long batchInvalidate(List<SyncSessionId> ids) {
         if (ids.size() == 0) return 0;
-        int count = 0;
+        long count = 0;
         String id;
         for (SyncSessionId syncSessionId : ids) {
             try {

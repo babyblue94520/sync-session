@@ -13,7 +13,7 @@ public interface SyncSessionStore<T extends SyncSession> {
 
     List<SyncSessionId> findAll(String username, String... excludeSessionIds);
 
-    List<SyncSessionId> findAllInvalidate(long time);
+    List<SyncSessionId> findAllInvalidate(Long time, Long count);
 
     void insert(T session) throws SQLException;
 
