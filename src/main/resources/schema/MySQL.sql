@@ -8,5 +8,7 @@ CREATE TABLE IF NOT EXISTS `session`
     `username`              varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '',
     `attributes`            text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
     PRIMARY KEY (`id`) USING BTREE,
-    INDEX                   `username`(`username`) USING BTREE
+    KEY `username`(`username`) USING BTREE,
+    KEY `id_username` (`id`,`username`) USING BTREE,
+    KEY `effective_time` (`effective_time`,`username`) USING BTREE
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
