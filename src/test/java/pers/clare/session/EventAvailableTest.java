@@ -90,7 +90,7 @@ class EventAvailableTest {
             return null;
         });
         long time = System.currentTimeMillis() - startTime;
-        System.out.printf("%d %d %d/s\n", max, time, count.get() * 1000 / time);
+        System.out.printf("%d %d %d/s\n", max, time, count.get() * 1000 / (time == 0 ? 1 : time));
         shutdown.run();
     }
 
