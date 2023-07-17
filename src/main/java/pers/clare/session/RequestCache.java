@@ -9,10 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.util.StringUtils;
 
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -22,9 +19,9 @@ import static java.util.Locale.*;
 public class RequestCache<T extends SyncSession> {
     private static final Logger log = LogManager.getLogger();
 
-    private static final ConcurrentMap<String, String> ipHeaderNames = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<String, String> ipHeaderNameMap = new ConcurrentHashMap<>();
 
-    private static final ConcurrentMap<Locale, Locale> supportLocales = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<String, Locale> supportLocaleMap = new ConcurrentHashMap<>();
 
     private static Locale defaultLocale = Locale.getDefault();
 
@@ -40,32 +37,51 @@ public class RequestCache<T extends SyncSession> {
 
     public static void addIpHeader(String... names) {
         for (String name : names) {
-            ipHeaderNames.put(name, name);
+            ipHeaderNameMap.put(name, name);
         }
     }
 
     public static void removeIpHeader(String... names) {
         for (String name : names) {
-            ipHeaderNames.remove(name, name);
+            ipHeaderNameMap.remove(name, name);
         }
     }
 
     public static void addSupportLocale(Locale... locales) {
         for (Locale locale : locales) {
-            supportLocales.computeIfAbsent(locale, (key) -> key);
+            if (locale == null) continue;
+            supportLocaleMap.putIfAbsent(locale.toLanguageTag().toLowerCase(), locale);
         }
     }
 
     public static void removeSupportLocale(Locale... locales) {
         for (Locale locale : locales) {
-            supportLocales.remove(locale);
+            if (locale == null) continue;
+            supportLocaleMap.remove(locale.toLanguageTag().toLowerCase());
         }
     }
 
+    /**
+     * add language code mapping locale. ex. zh mapping zh-TW, en-US mapping en.
+     */
+    public static void addMappingLocale(String code, Locale locale) {
+        if (code == null || code.length() == 0 || locale == null) return;
+        supportLocaleMap.put(code.toLowerCase(), locale);
+    }
+
     public static Locale getLocale(String lang) {
-        if (lang != null) {
+        if (lang != null && lang.length() > 0) {
             try {
-                return Locale.lookup(Locale.LanguageRange.parse(lang), supportLocales.keySet());
+                List<LanguageRange> ranges = Locale.LanguageRange.parse(lang);
+                for (LanguageRange range : ranges) {
+                    // range is lowercase
+                    String code = range.getRange();
+                    if (Objects.equals("*", code)) {
+                        break;
+                    }
+                    Locale locale = supportLocaleMap.get(code);
+                    if (locale != null) return locale;
+                }
             } catch (Exception e) {
                 log.error(e);
             }
@@ -75,7 +91,7 @@ public class RequestCache<T extends SyncSession> {
 
     public static String getClientIp(HttpServletRequest request) {
         String clientIp;
-        for (String name : ipHeaderNames.keySet()) {
+        for (String name : ipHeaderNameMap.keySet()) {
             clientIp = getFirstIp(request.getHeader(name));
             if (clientIp != null) {
                 return clientIp;
