@@ -1,10 +1,10 @@
 package pers.clare.session;
 
-import pers.clare.session.exception.SyncSessionException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
+import pers.clare.session.exception.SyncSessionException;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;

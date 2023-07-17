@@ -1,9 +1,9 @@
 package pers.clare.test.session;
 
+import org.springframework.lang.Nullable;
 import pers.clare.session.SyncSessionEventService;
 import pers.clare.session.SyncSessionProperties;
 import pers.clare.session.SyncSessionServiceImpl;
-import org.springframework.lang.Nullable;
 
 import javax.sql.DataSource;
 

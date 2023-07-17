@@ -1,8 +1,8 @@
 package pers.clare.test;
 
-import pers.clare.session.EnableSyncSession;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import pers.clare.session.EnableSyncSession;
 
 @EnableSyncSession
 @SpringBootApplication

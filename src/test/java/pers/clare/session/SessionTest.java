@@ -1,13 +1,5 @@
 package pers.clare.session;
 
-import pers.clare.h2.H2Application;
-import pers.clare.session.constant.InvalidateBy;
-import pers.clare.test.ApplicationTest2;
-import pers.clare.test.config.SessionConfig;
-import pers.clare.test.config.SessionListenerConfig;
-import pers.clare.test.session.SyncSessionEventServiceImpl;
-import pers.clare.urlrequest.URLRequest;
-import pers.clare.urlrequest.URLRequestMethod;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
@@ -16,6 +8,14 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.jdbc.Sql;
+import pers.clare.h2.H2Application;
+import pers.clare.session.constant.InvalidateBy;
+import pers.clare.test.ApplicationTest2;
+import pers.clare.test.config.SessionConfig;
+import pers.clare.test.config.SessionListenerConfig;
+import pers.clare.test.session.SyncSessionEventServiceImpl;
+import pers.clare.urlrequest.URLRequest;
+import pers.clare.urlrequest.URLRequestMethod;
 
 import java.net.CookieManager;
 import java.net.HttpCookie;

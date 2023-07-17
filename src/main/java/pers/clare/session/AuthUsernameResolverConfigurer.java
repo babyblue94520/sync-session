@@ -1,8 +1,8 @@
 package pers.clare.session;
 
-import pers.clare.session.support.auth.AuthArgumentResolver;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import pers.clare.session.support.auth.AuthArgumentResolver;
 
 import java.util.List;
 

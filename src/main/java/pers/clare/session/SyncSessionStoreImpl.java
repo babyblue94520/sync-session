@@ -2,11 +2,11 @@ package pers.clare.session;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import pers.clare.session.exception.SyncSessionException;
 import pers.clare.session.util.DataSourceSchemaUtil;
 import pers.clare.session.util.JsonUtil;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import javax.sql.DataSource;
 import java.io.IOException;

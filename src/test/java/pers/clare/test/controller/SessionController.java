@@ -1,8 +1,8 @@
 package pers.clare.test.controller;
 
+import org.springframework.web.bind.annotation.*;
 import pers.clare.session.RequestCacheHolder;
 import pers.clare.test.session.TokenSession;
-import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
