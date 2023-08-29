@@ -8,3 +8,4 @@ spring:
 
 sync-session:
   timeout: 5s
+  table-name: test-session

@@ -56,7 +56,11 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         this.sessionClass = (Class<T>) SessionUtil.getSessionClass(this.getClass());
         this.properties = properties;
         this.sessionEventService = sessionEventService;
-        this.store = new SyncSessionStoreImpl<>(dataSource, this.sessionClass);
+        this.store = new SyncSessionStoreImpl<>(
+                dataSource
+                , properties.getTableName()
+                , this.sessionClass
+        );
     }
 
     @Override
@@ -85,8 +89,8 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         T session = sessions.get(id);
         if (session == null) return null;
         if (session.valid
-                && session.effectiveTime > System.currentTimeMillis()
-                && (sessionEventService == null || sessionEventService.isAvailable())
+            && session.effectiveTime > System.currentTimeMillis()
+            && (sessionEventService == null || sessionEventService.isAvailable())
         ) {
             return session;
         }

@@ -21,6 +21,8 @@ public class SyncSessionProperties {
 
     private Long batchInvalidateCount = 100L;
 
+    private String tableName = "session";
+
     public String getCookieName() {
         return cookieName;
     }
@@ -43,5 +45,13 @@ public class SyncSessionProperties {
 
     public void setBatchInvalidateCount(Long batchInvalidateCount) {
         this.batchInvalidateCount = batchInvalidateCount;
+    }
+
+    public String getTableName() {
+        return tableName;
+    }
+
+    public void setTableName(String tableName) {
+        this.tableName = tableName;
     }
 }

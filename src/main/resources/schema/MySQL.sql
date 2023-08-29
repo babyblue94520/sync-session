@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS `session`
+CREATE TABLE IF NOT EXISTS `{tableName}`
 (
     `id`                    varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     `create_time`           bigint(13) NULL DEFAULT 0,

@@ -1,4 +1,4 @@
-create table if not exists `session`
+create table if not exists `{tableName}`
 (
     id                    varchar(32) not null,
     create_time           bigint      default '0',
