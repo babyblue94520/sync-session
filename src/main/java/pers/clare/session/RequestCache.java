@@ -117,7 +117,7 @@ public class RequestCache<T extends SyncSession> {
 
     public static Map<String, String> convert(Map<String, String[]> map) {
         if (map == null) {
-            return null;
+            return Collections.emptyMap();
         } else {
             Map<String, String> newMap = new HashMap<>();
             for (Map.Entry<String, String[]> entry : map.entrySet()) {
@@ -187,7 +187,7 @@ public class RequestCache<T extends SyncSession> {
         if (session == null) return;
         session.valid = false;
         sessionService.invalidate(session);
-        removeSessionCookie();
+        removeSession();
     }
 
     void invalidate(T session) {
@@ -195,7 +195,7 @@ public class RequestCache<T extends SyncSession> {
         session.valid = false;
         if (this.session == null) this.session = getSession();
         if (this.session != null && Objects.equals(this.session.id, session.id)) {
-            removeSessionCookie();
+            removeSession();
             this.session.valid = false;
         }
         sessionService.invalidate(session);
@@ -253,9 +253,7 @@ public class RequestCache<T extends SyncSession> {
 
     public String getSessionId(boolean auto) {
         if (session == null) {
-            Cookie cookie = getSessionCookie();
-            String id = cookie == null ? null : cookie.getValue();
-            session = sessionService.find(id);
+            session = sessionService.find(findSessionId());
         } else {
             if (session.valid) {
                 return session.getId();
@@ -264,9 +262,7 @@ public class RequestCache<T extends SyncSession> {
         if (session == null || !session.valid) {
             if (auto) {
                 session = sessionService.create(accessTime, getUserAgent(), getClientIp());
-                addCookie(ResponseCookie.from(sessionService.getProperties().getCookieName(), session.getId())
-                        .httpOnly(true)
-                        .path("/"));
+                responseSession();
             } else {
                 return null;
             }
@@ -276,9 +272,7 @@ public class RequestCache<T extends SyncSession> {
     }
 
     public Cookie getCookie(String name) {
-        if (name == null) {
-            return null;
-        }
+        if (name == null) return null;
         Cookie[] cookies = request.getCookies();
         if (cookies == null || cookies.length == 0) {
             return null;
@@ -298,23 +292,9 @@ public class RequestCache<T extends SyncSession> {
                 .path("/"));
     }
 
-    public Cookie getSessionCookie() {
-        if (sessionCookie != null) {
-            return sessionCookie;
-        }
-        sessionCookie = getCookie(sessionService.getProperties().getCookieName());
-        return sessionCookie;
-    }
-
-    private void removeSessionCookie() {
-        addCookie(ResponseCookie.from(sessionService.getProperties().getCookieName(), "")
-                .httpOnly(true)
-                .maxAge(0)
-                .path("/"));
-    }
-
     public Map<String, String[]> getParametersMap() {
         if (parametersMap == null) {
+
             parametersMap = request.getParameterMap();
         }
         return parametersMap;
@@ -375,7 +355,7 @@ public class RequestCache<T extends SyncSession> {
         String origin = getOrigin();
         // 處理跨域
         if (StringUtils.hasLength(origin)
-                && !(getUrl().startsWith(origin) && getUrl().startsWith("/", origin.length()))
+            && !(getUrl().startsWith(origin) && getUrl().startsWith("/", origin.length()))
         ) {
             cookieBuilder
                     .secure(true)
@@ -398,4 +378,52 @@ public class RequestCache<T extends SyncSession> {
         }
         return timeout < 0 ? 0 : timeout;
     }
+
+    protected String findSessionId() {
+        SyncSessionProperties properties = sessionService.getProperties();
+        String name = properties.getName();
+        switch (properties.getMode()) {
+            case Cookie:
+                Cookie cookie = getCookie(name);
+                return cookie == null ? null : cookie.getValue();
+            case Header:
+                return getHeader(name);
+            case QueryString:
+                return getParameterMap().get(name);
+        }
+        return null;
+    }
+
+    protected void responseSession(){
+        SyncSessionProperties properties = sessionService.getProperties();
+        String name = properties.getName();
+        switch (properties.getMode()) {
+            case Cookie:
+                addCookie(ResponseCookie.from(name, session.getId())
+                        .httpOnly(true)
+                        .path("/"));
+                break;
+            case Header:
+            case QueryString:
+                response.addHeader(name, session.getId());
+                break;
+        }
+    }
+
+    protected void removeSession(){
+        SyncSessionProperties properties = sessionService.getProperties();
+        String name = properties.getName();
+        switch (properties.getMode()) {
+            case Cookie:
+                addCookie(ResponseCookie.from(name, "")
+                        .httpOnly(true)
+                        .maxAge(0)
+                        .path("/"));
+                break;
+            case Header:
+            case QueryString:
+                break;
+        }
+    }
+
 }
