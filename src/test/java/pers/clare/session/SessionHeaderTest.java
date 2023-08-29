@@ -16,10 +16,8 @@ import pers.clare.test.config.SessionListenerConfig;
 import pers.clare.test.session.SyncSessionEventServiceImpl;
 import pers.clare.urlrequest.URLRequest;
 import pers.clare.urlrequest.URLRequestMethod;
+import pers.clare.urlrequest.URLResponse;
 
-import java.net.CookieManager;
-import java.net.HttpCookie;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
 
@@ -28,12 +26,12 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 
 @Sql(scripts = {"/schema/schema.sql"})
-@DisplayName("SessionTest")
+@DisplayName("SessionHeaderTest")
 @TestInstance(PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Import({SessionConfig.class, SessionListenerConfig.class})
-@SpringBootTest(args = {"--listen=true"})
-class SessionTest {
+@SpringBootTest(args = {"--listen=true", "--sync-session.mode=header"})
+class SessionHeaderTest {
     private static final List<String> ports = new ArrayList<>();
 
     private static final List<ApplicationContext> applications = new ArrayList<>();
@@ -50,7 +48,7 @@ class SessionTest {
         }
     }
 
-    private final CookieManager cookieManager = new CookieManager();
+    private String sessionId;
 
     @Autowired
     private SyncSessionProperties syncSessionProperties;
@@ -69,6 +67,7 @@ class SessionTest {
                     , "--server.port=" + port
                     , "--h2.port=9090"
                     , "--listen=true"
+                    , "--sync-session.mode=header"
             ));
         }
     }
@@ -120,8 +119,7 @@ class SessionTest {
         long timeout = syncSessionProperties.getTimeout().toMillis() * 2;
         for (int i = 0; i < timeout; i += 1000) {
             Thread.sleep(1000);
-            assertEquals(token, URLRequest.build(toUrl(ports.get(0), "/token"))
-                    .cookieManager(cookieManager)
+            assertEquals(token, request(toUrl(ports.get(0), "/token"))
                     .get()
                     .getBody()
             );
@@ -134,8 +132,7 @@ class SessionTest {
     void ping() throws InterruptedException {
         long timeout = syncSessionProperties.getTimeout().toMillis() * 2;
         for (int i = 0; i < timeout; i += 1000) {
-            URLRequest.build(toUrl(ports.get(0), "/ping"))
-                    .cookieManager(cookieManager)
+            request(toUrl(ports.get(0), "/ping"))
                     .post();
             Thread.sleep(1000);
         }
@@ -152,8 +149,7 @@ class SessionTest {
         verifyToken(token);
 
         // invalidate
-        URLRequest.build(toUrl(getRandomPort(), ""))
-                .cookieManager(cookieManager)
+        request(toUrl(getRandomPort(), ""))
                 .delete();
 
         verifyToken("");
@@ -164,43 +160,37 @@ class SessionTest {
     @Order(7)
     void invalidateByUsername() throws URISyntaxException {
         final String username = "1";
-        final CookieManager cookieManager = new CookieManager();
         final String port = getRandomPort();
         final String uri = toUrl(port, "");
-        final String token = URLRequest
-                .build(uri)
-                .cookieManager(cookieManager)
+        final String token = getSession(request(uri)
                 .param("username", username)
-                .post()
+                .post())
                 .getBody();
         assertNotEquals("", token);
 
-        String sessionId = getSessionId(cookieManager, uri);
+        String sessionId = getSessionId(uri);
         assertNotNull(sessionId);
 
-        Map<String, CookieManager> cookieManagers = new HashMap<>();
+        Map<String, String> sessionMap = new HashMap<>();
         for (String p : ports) {
-            CookieManager cm = new CookieManager();
-            String t = URLRequest.build(toUrl(p, ""))
-                    .cookieManager(cm)
+            URLResponse<String> response = URLRequest.build(toUrl(p, ""))
                     .param("username", username)
-                    .post()
-                    .getBody();
+                    .post();
+
+            sessionMap.put(p, response.getHeaders().get(syncSessionProperties.getName()).get(0));
+            String t = response.getBody();
             assertNotEquals("", t);
             assertNotEquals(token, t);
-            cookieManagers.put(p, cm);
         }
 
         syncSessionService.invalidateByUsername(username, sessionId);
         for (String p : ports) {
             syncSessionService.keepalive(sessionId);
-            String t = retryGetToken(cookieManagers.get(p), toUrl(p, "/token"), "", 0);
+            String t = retryGetToken(toUrl(p, "/token"), "", 0, sessionMap.get(p));
             assertEquals("", t);
         }
 
-        assertEquals(token, URLRequest
-                .build(toUrl(port, "/token"))
-                .cookieManager(cookieManager)
+        assertEquals(token, request(toUrl(port, "/token"))
                 .get()
                 .getBody());
     }
@@ -211,7 +201,6 @@ class SessionTest {
     void keepalive() throws InterruptedException, URISyntaxException {
         String token = createSession();
         assertNotEquals("", token);
-        String sessionId = getSessionId(cookieManager, toUrl(getRandomPort(), ""));
         assertNotNull(sessionId);
         long timeout = syncSessionProperties.getTimeout().toMillis() * 2;
         for (int i = 0; i < timeout; i += 1000) {
@@ -234,14 +223,13 @@ class SessionTest {
 
     void verifyToken(String token) {
         for (String port : ports) {
-            String t = retryGetToken(cookieManager, toUrl(port, "/token"), token, 0);
+            String t = retryGetToken(toUrl(port, "/token"), token, 0);
             assertEquals(token, t);
         }
     }
 
-    String retryGetToken(CookieManager cookieManager, String url, String expected, int count) {
-        String t = URLRequest.build(url)
-                .cookieManager(cookieManager)
+    String retryGetToken(String url, String expected, int count) {
+        String t = request(url)
                 .get()
                 .getBody();
         if (Objects.equals(expected, t)) return t;
@@ -250,7 +238,20 @@ class SessionTest {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        return count < 10 ? retryGetToken(cookieManager, url, expected, count + 1) : t;
+        return retryGetToken(url, expected, count, sessionId);
+    }
+
+    String retryGetToken(String url, String expected, int count, String sessionId) {
+        String t = request(url, sessionId)
+                .get()
+                .getBody();
+        if (Objects.equals(expected, t)) return t;
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return count < 10 ? retryGetToken(url, expected, count + 1) : t;
     }
 
     void verifyListener() throws InterruptedException {
@@ -263,14 +264,23 @@ class SessionTest {
         return result(port, path, method, null);
     }
 
+
+    URLRequest<String> request(String url) {
+        return request(url, sessionId);
+    }
+
+    URLRequest<String> request(String url, String sessionId) {
+        URLRequest<String> request = URLRequest.build(url);
+        request.header(syncSessionProperties.getName(), sessionId);
+        return request;
+    }
+
     String result(String port, String path, String method, Map<String, Object> params) {
-        return URLRequest
-                .build(toUrl(port, path))
+        URLResponse<String> response = request(toUrl(port, path))
                 .params(params)
-                .cookieManager(cookieManager)
                 .method(method)
-                .go()
-                .getBody();
+                .go();
+        return getSession(response).getBody();
     }
 
     String createSession() {
@@ -283,16 +293,17 @@ class SessionTest {
         return result(getRandomPort(), "/token", URLRequestMethod.GET);
     }
 
-    String getSessionId(CookieManager cookieManager, String uri) throws URISyntaxException {
-        final List<HttpCookie> cookies = cookieManager.getCookieStore().get(new URI(uri));
-        final String cookieName = syncSessionProperties.getCookieName();
-        String sessionId = null;
-        for (HttpCookie cookie : cookies) {
-            if (cookieName.equalsIgnoreCase(cookie.getName())) {
-                sessionId = cookie.getValue();
-                break;
-            }
-        }
+    String getSessionId(String uri) throws URISyntaxException {
         return sessionId;
     }
+
+    <T> URLResponse<T> getSession(URLResponse<T> response) {
+        List<String> values = response.getHeaders().get(syncSessionProperties.getName());
+        if (values != null && values.size() > 0) {
+            this.sessionId = values.get(0);
+        }
+        return response;
+    }
+
+
 }

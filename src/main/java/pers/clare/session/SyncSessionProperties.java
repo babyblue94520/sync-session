@@ -1,6 +1,7 @@
 package pers.clare.session;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import pers.clare.session.constant.SessionMode;
 
 import java.time.Duration;
 
@@ -12,7 +13,9 @@ public class SyncSessionProperties {
     /**
      * Cookie name
      */
-    private String cookieName = "SSESSIONID";
+    private String name = "SSESSIONID";
+
+    private SessionMode mode = SessionMode.Cookie;
 
     /**
      * Session timeout
@@ -23,12 +26,20 @@ public class SyncSessionProperties {
 
     private String tableName = "session";
 
-    public String getCookieName() {
-        return cookieName;
+    public String getName() {
+        return name;
     }
 
-    public void setCookieName(String cookieName) {
-        this.cookieName = cookieName;
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public SessionMode getMode() {
+        return mode;
+    }
+
+    public void setMode(SessionMode mode) {
+        this.mode = mode;
     }
 
     public Duration getTimeout() {
