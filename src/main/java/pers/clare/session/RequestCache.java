@@ -422,6 +422,7 @@ public class RequestCache<T extends SyncSession> {
                 break;
             case Header:
             case QueryString:
+                response.addHeader(name, "");
                 break;
         }
     }
