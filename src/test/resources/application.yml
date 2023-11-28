@@ -5,7 +5,8 @@ spring:
     username: sa
     password: 123456
 
-
 sync-session:
   timeout: 5s
-  table-name: test-session
+  clazz: pers.clare.test.session.TokenSession
+  ds:
+    table-name: test-session

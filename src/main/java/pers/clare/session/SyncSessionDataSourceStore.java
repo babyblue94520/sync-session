@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import pers.clare.session.configuration.SyncSessionProperties;
 import pers.clare.session.constant.SQL;
 import pers.clare.session.exception.SyncSessionException;
 import pers.clare.session.util.DataSourceSchemaUtil;
@@ -11,6 +12,7 @@ import pers.clare.session.util.JsonUtil;
 
 import javax.sql.DataSource;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -19,32 +21,36 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-public class SyncSessionStoreImpl<T extends SyncSession> implements SyncSessionStore<T> {
+public class SyncSessionDataSourceStore<T extends SyncSession> implements SyncSessionStore<T> {
     private static final Logger log = LogManager.getLogger();
 
     private final SQL sql;
 
     private final DataSource dataSource;
-    private final String tableName;
+    private final SyncSessionProperties.DSProperties dsProperties;
 
     private final ObjectMapper om = JsonUtil.create();
 
     private final Class<T> sessionClass;
 
-    public SyncSessionStoreImpl(DataSource dataSource, String tableName, Class<T> sessionClass) {
+    public SyncSessionDataSourceStore(DataSource dataSource, SyncSessionProperties.DSProperties dsProperties, Class<T> sessionClass) {
         this.dataSource = dataSource;
-        this.tableName = tableName;
+        this.dsProperties = dsProperties;
         this.sessionClass = sessionClass;
-        this.sql = new SQL(tableName);
-
+        this.sql = new SQL(dsProperties.getTableName());
     }
 
     public void initSchema() {
         try {
-            DataSourceSchemaUtil.init(dataSource, tableName);
+            DataSourceSchemaUtil.init(dataSource, dsProperties.getTableName());
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public T newInstance() throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        return sessionClass.getConstructor().newInstance();
     }
 
     public T find(String id, Long time) {

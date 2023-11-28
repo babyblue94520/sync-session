@@ -34,3 +34,4 @@ build/
 /temp/data/
 allure-results/
 .allure/
+test/

@@ -1,0 +1,6 @@
+sync-session:
+  timeout: 50s
+  store: local
+  local:
+    path: test/aa
+    file-name: sessions

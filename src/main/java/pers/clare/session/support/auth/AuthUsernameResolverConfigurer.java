@@ -1,4 +1,4 @@
-package pers.clare.session;
+package pers.clare.session.support.auth;
 
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;

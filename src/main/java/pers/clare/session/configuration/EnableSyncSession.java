@@ -1,6 +1,8 @@
-package pers.clare.session;
+package pers.clare.session.configuration;
 
 import org.springframework.context.annotation.Import;
+import pers.clare.session.configuration.SyncSessionConfiguration;
+import pers.clare.session.support.auth.AuthUsernameResolverConfigurer;
 
 import java.lang.annotation.*;
 

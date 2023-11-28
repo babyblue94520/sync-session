@@ -1,6 +1,7 @@
 package pers.clare.session;
 
 import pers.clare.session.listener.SyncSessionInvalidateListener;
+import pers.clare.session.configuration.SyncSessionProperties;
 
 public interface SyncSessionOperatorService<T extends SyncSession> {
     SyncSessionProperties getProperties();

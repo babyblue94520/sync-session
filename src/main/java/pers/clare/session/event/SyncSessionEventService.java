@@ -1,4 +1,4 @@
-package pers.clare.session;
+package pers.clare.session.event;
 
 import java.util.function.Consumer;
 

@@ -7,7 +7,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Import;
 import org.springframework.util.StringUtils;
 import pers.clare.h2.H2Application;
-import pers.clare.test.ApplicationTest2;
+import pers.clare.test.ApplicationTest;
 import pers.clare.test.config.SessionConfig;
 import pers.clare.test.session.SyncSessionEventServiceImpl;
 import pers.clare.urlrequest.URLRequest;
@@ -55,7 +55,7 @@ class PerformanceTest {
     @BeforeAll
     void before() {
         for (String port : ports) {
-            applications.add(SpringApplication.run(ApplicationTest2.class
+            applications.add(SpringApplication.run(ApplicationTest.class
                     , "--server.port=" + port
                     , "--sync-session.timeout=30m"
                     , "--h2.port=10090"
@@ -78,7 +78,7 @@ class PerformanceTest {
         Map<CookieManager, String> tokenMap = new ConcurrentHashMap<>();
         AtomicLong failCount = new AtomicLong();
 
-        PerformanceUtil.byCount(1000, (index) -> {
+        PerformanceUtil.byCount("create token", 1000, (index) -> {
             CookieManager cm = new CookieManager();
             String token = URLRequest.build(toUrl(getRandomPort(), ""))
                     .cookieManager(cm)
@@ -93,7 +93,7 @@ class PerformanceTest {
         });
 
         int size = cookieManagerMap.size();
-        PerformanceUtil.byCount(50000, (index) -> {
+        PerformanceUtil.byCount("get token", 50000, (index) -> {
             long key = index % size + 1;
             CookieManager cm = cookieManagerMap.get(key);
             String token = URLRequest.build(toUrl(getRandomPort(), "/token"))

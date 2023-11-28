@@ -1,10 +1,11 @@
 package pers.clare.session;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import pers.clare.session.support.VolatileBlock;
+
+import java.io.Serializable;
 
 @SuppressWarnings("unused")
-public class SyncSession {
+public class SyncSession extends SyncSessionId implements Serializable {
     @JsonIgnore
     String id;
 
@@ -33,8 +34,8 @@ public class SyncSession {
 
     String ip;
 
-    @JsonIgnore
-    VolatileBlock refresh = new VolatileBlock(5000);
+    public SyncSession() {
+    }
 
     protected void save() {
         if (id != null) RequestCacheHolder.get().save();
@@ -94,7 +95,4 @@ public class SyncSession {
         return ip;
     }
 
-    public VolatileBlock getRefresh() {
-        return refresh;
-    }
 }

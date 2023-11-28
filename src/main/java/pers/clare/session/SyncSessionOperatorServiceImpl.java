@@ -6,10 +6,11 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.util.ConcurrentReferenceHashMap;
 import pers.clare.session.constant.EventType;
 import pers.clare.session.constant.InvalidateBy;
+import pers.clare.session.event.SyncSessionEventService;
 import pers.clare.session.listener.SyncSessionInvalidateListener;
-import pers.clare.session.util.SessionUtil;
+import pers.clare.session.configuration.SyncSessionProperties;
 
-import javax.sql.DataSource;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -32,9 +33,6 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
 
     protected final List<SyncSessionInvalidateListener> invalidateListeners = new CopyOnWriteArrayList<>();
 
-    // session class
-    protected final Class<T> sessionClass;
-
     // session storage
     protected final SyncSessionStore<T> store;
 
@@ -47,20 +45,21 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
     // session max inactive interval
     protected long maxInactiveInterval;
 
-    @SuppressWarnings("unchecked")
     public SyncSessionOperatorServiceImpl(
             SyncSessionProperties properties
-            , DataSource dataSource
+            , SyncSessionStore<T> store
+    ) {
+        this(properties, store, null);
+    }
+
+    public SyncSessionOperatorServiceImpl(
+            SyncSessionProperties properties
+            , SyncSessionStore<T> store
             , SyncSessionEventService sessionEventService
     ) {
-        this.sessionClass = (Class<T>) SessionUtil.getSessionClass(this.getClass());
         this.properties = properties;
+        this.store = store;
         this.sessionEventService = sessionEventService;
-        this.store = new SyncSessionStoreImpl<>(
-                dataSource
-                , properties.getTableName()
-                , this.sessionClass
-        );
     }
 
     @Override
@@ -162,7 +161,7 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         return listener;
     }
 
-    protected long batchInvalidate(List<SyncSessionId> ids) {
+    protected long batchInvalidate(Collection<SyncSessionId> ids) {
         if (ids.size() == 0) return 0;
         long count = 0;
         String id;
@@ -184,16 +183,10 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
     public void clear(T session) {
         sessions.remove(session.id);
         if (sessionEventService == null) return;
-        session.refresh.block();
         send(EventType.CLEAR, session.id, session.username);
     }
 
-    private void clearHandler(String id, String username) {
-        T session = sessions.get(id);
-        if (session == null) return;
-        // avoid repeated operations
-        if (session.refresh.isBlock()) return;
-        log.debug("do clear {}", id);
+    private void clearHandler(String id) {
         sessions.remove(id);
     }
 
@@ -210,12 +203,8 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         String id = array[1];
         String username = array[2];
         switch (type) {
-            case EventType.INVALIDATE:
-                invalidateHandler(id, username);
-                break;
-            case EventType.CLEAR:
-                clearHandler(id, username);
-                break;
+            case EventType.INVALIDATE -> invalidateHandler(id, username);
+            case EventType.CLEAR -> clearHandler(id);
         }
     }
 }

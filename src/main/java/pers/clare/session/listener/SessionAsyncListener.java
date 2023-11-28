@@ -1,7 +1,8 @@
-package pers.clare.session;
+package pers.clare.session.listener;
 
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
+import pers.clare.session.RequestCache;
 
 public class SessionAsyncListener implements AsyncListener {
     private RequestCache<?> requestCache;

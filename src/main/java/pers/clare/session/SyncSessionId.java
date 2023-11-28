@@ -1,9 +1,13 @@
 package pers.clare.session;
 
 public class SyncSessionId {
-    private final String id;
+    String id;
 
-    private final String username;
+    String username;
+
+    public SyncSessionId() {
+
+    }
 
     public SyncSessionId(String id, String username) {
         this.id = id;

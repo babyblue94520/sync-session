@@ -4,24 +4,27 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
+import pers.clare.session.event.SyncSessionEventService;
 import pers.clare.session.exception.SyncSessionException;
+import pers.clare.session.util.SessionUtil;
+import pers.clare.session.configuration.SyncSessionProperties;
 
-import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOperatorServiceImpl<T> implements SyncSessionService<T>, InitializingBean, DisposableBean {
-    private static final Logger log = LogManager.getLogger();
+
+    private final Logger log = LogManager.getLogger();
 
     // retry create session count
-    public static final int MAX_RETRY_INSERT = 5;
+    public final int maxRetryInsert = 5;
 
     // refresh session to storage interval
     private long updateInterval;
@@ -30,10 +33,17 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
 
     public SyncSessionServiceImpl(
             SyncSessionProperties properties
-            , DataSource dataSource
+            , SyncSessionStore<T> store
+    ) {
+        super(properties, store);
+    }
+
+    public SyncSessionServiceImpl(
+            SyncSessionProperties properties
+            , SyncSessionStore<T> store
             , SyncSessionEventService sessionEventService
     ) {
-        super(properties, dataSource, sessionEventService);
+        super(properties, store, sessionEventService);
     }
 
     @Override
@@ -75,7 +85,7 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
             , String ip
     ) {
         try {
-            T session = sessionClass.getDeclaredConstructor().newInstance();
+            T session = store.newInstance();
             session.createTime = accessTime;
             session.maxInactiveInterval = maxInactiveInterval;
             session.lastAccessTime = accessTime;
@@ -107,15 +117,15 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
 
     private T doInsert(T session, int count) {
         try {
-            session.id = generateUUIDString(UUID.randomUUID());
+            session.id = SessionUtil.generateId();
             store.insert(session);
             sessions.put(session.id, session);
             return session;
         } catch (SyncSessionException e) {
             SQLException sqlException = e.getSqlException();
             if (sqlException instanceof SQLIntegrityConstraintViolationException
-                    && sqlException.getErrorCode() == 1062
-                    && count < MAX_RETRY_INSERT
+                && sqlException.getErrorCode() == 1062
+                && count < maxRetryInsert
             ) {
                 // retry where uuid is existed
                 return doInsert(session, count + 1);
@@ -161,23 +171,10 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
 
     public long batchInvalidate(Long time) {
         long count = 0;
-        List<SyncSessionId> ids;
+        Collection<SyncSessionId> ids;
         while ((ids = store.findAllInvalidate(time, properties.getBatchInvalidateCount())).size() > 0) {
             count += batchInvalidate(ids);
         }
         return count;
-    }
-
-    public static String generateUUIDString(UUID uuid) {
-        return (digits(uuid.getMostSignificantBits() >> 32, 8) +
-                digits(uuid.getMostSignificantBits() >> 16, 4) +
-                digits(uuid.getMostSignificantBits(), 4) +
-                digits(uuid.getLeastSignificantBits() >> 48, 4) +
-                digits(uuid.getLeastSignificantBits(), 12));
-    }
-
-    private static String digits(long val, int digits) {
-        long hi = 1L << (digits * 4);
-        return Long.toHexString(hi | (val & (hi - 1))).substring(1);
     }
 }

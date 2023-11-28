@@ -1,6 +1,6 @@
 package pers.clare.test.session;
 
-import pers.clare.session.SyncSessionEventService;
+import pers.clare.session.event.SyncSessionEventService;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;

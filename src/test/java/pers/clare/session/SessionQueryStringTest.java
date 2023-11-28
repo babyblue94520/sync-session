@@ -10,13 +10,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.jdbc.Sql;
 import pers.clare.h2.H2Application;
 import pers.clare.session.constant.InvalidateBy;
-import pers.clare.test.ApplicationTest2;
+import pers.clare.session.configuration.SyncSessionProperties;
+import pers.clare.test.ApplicationTest;
 import pers.clare.test.config.SessionConfig;
 import pers.clare.test.config.SessionListenerConfig;
 import pers.clare.test.session.SyncSessionEventServiceImpl;
 import pers.clare.urlrequest.URLRequest;
 import pers.clare.urlrequest.URLRequestMethod;
-import pers.clare.urlrequest.URLRequestUtil;
 import pers.clare.urlrequest.URLResponse;
 
 import java.net.URISyntaxException;
@@ -64,7 +64,7 @@ class SessionQueryStringTest {
     @BeforeAll
     void before() {
         for (String port : ports) {
-            applications.add(SpringApplication.run(ApplicationTest2.class
+            applications.add(SpringApplication.run(ApplicationTest.class
                     , "--server.port=" + port
                     , "--h2.port=9090"
                     , "--listen=true"
@@ -137,6 +137,7 @@ class SessionQueryStringTest {
                     .post();
             Thread.sleep(1000);
         }
+        Thread.sleep(1000);
         verifyToken("");
         verifyListener();
     }
@@ -159,7 +160,7 @@ class SessionQueryStringTest {
 
     @Test
     @Order(7)
-    void invalidateByUsername() throws URISyntaxException {
+    void invalidateByUsername() throws URISyntaxException, InterruptedException {
         final String username = "1";
         final String port = getRandomPort();
         final String uri = toUrl(port, "");
@@ -185,6 +186,8 @@ class SessionQueryStringTest {
         }
 
         syncSessionService.invalidateByUsername(username, sessionId);
+        syncSessionService.keepalive(sessionId);
+        Thread.sleep(1000);
         for (String p : ports) {
             syncSessionService.keepalive(sessionId);
             String t = retryGetToken(toUrl(p, "/token"), "", 0, sessionMap.get(p));
@@ -248,7 +251,7 @@ class SessionQueryStringTest {
                 .getBody();
         if (Objects.equals(expected, t)) return t;
         try {
-            Thread.sleep(100);
+            Thread.sleep(500);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

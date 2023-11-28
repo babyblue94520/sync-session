@@ -10,7 +10,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.jdbc.Sql;
 import pers.clare.h2.H2Application;
 import pers.clare.session.constant.InvalidateBy;
-import pers.clare.test.ApplicationTest2;
+import pers.clare.session.configuration.SyncSessionProperties;
+import pers.clare.test.ApplicationTest;
 import pers.clare.test.config.SessionConfig;
 import pers.clare.test.config.SessionListenerConfig;
 import pers.clare.test.session.SyncSessionEventServiceImpl;
@@ -63,7 +64,7 @@ class SessionHeaderTest {
     @BeforeAll
     void before() {
         for (String port : ports) {
-            applications.add(SpringApplication.run(ApplicationTest2.class
+            applications.add(SpringApplication.run(ApplicationTest.class
                     , "--server.port=" + port
                     , "--h2.port=9090"
                     , "--listen=true"
@@ -136,6 +137,7 @@ class SessionHeaderTest {
                     .post();
             Thread.sleep(1000);
         }
+        Thread.sleep(1000);
         verifyToken("");
         verifyListener();
     }
@@ -158,7 +160,7 @@ class SessionHeaderTest {
 
     @Test
     @Order(7)
-    void invalidateByUsername() throws URISyntaxException {
+    void invalidateByUsername() throws URISyntaxException, InterruptedException {
         final String username = "1";
         final String port = getRandomPort();
         final String uri = toUrl(port, "");
@@ -184,6 +186,8 @@ class SessionHeaderTest {
         }
 
         syncSessionService.invalidateByUsername(username, sessionId);
+        syncSessionService.keepalive(sessionId);
+        Thread.sleep(1000);
         for (String p : ports) {
             syncSessionService.keepalive(sessionId);
             String t = retryGetToken(toUrl(p, "/token"), "", 0, sessionMap.get(p));

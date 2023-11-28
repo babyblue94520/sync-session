@@ -8,6 +8,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.util.StringUtils;
+import pers.clare.session.configuration.SyncSessionProperties;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
