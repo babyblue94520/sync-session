@@ -9,8 +9,8 @@ Regularly update lastAccessTime to reduce the load of RDBS and improve concurren
 
 ## Requirement
 
-* Spring Boot 2.3+
-* Java 8+
+* Spring Boot 3+
+* Java 17+
 * Database (support MySQL and H2)
 
 ## QuickStart
