@@ -1,14 +1,8 @@
 package pers.clare.session.configuration;
 
-import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
-import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.Nullable;
@@ -17,8 +11,6 @@ import pers.clare.session.*;
 import pers.clare.session.constant.StoreType;
 import pers.clare.session.event.SyncSessionEventService;
 import pers.clare.session.filter.SyncSessionFilter;
-import pers.clare.session.SyncSessionDataSourceStore;
-import pers.clare.session.SyncSessionLocalStore;
 
 import javax.sql.DataSource;
 
@@ -27,7 +19,6 @@ import javax.sql.DataSource;
 public class SyncSessionAutoConfiguration {
 
     @Bean
-    @Autowired(required = false)
     @ConditionalOnMissingBean(SyncSessionStore.class)
     public SyncSessionStore<?> syncSessionStore(
             SyncSessionProperties properties
@@ -48,7 +39,6 @@ public class SyncSessionAutoConfiguration {
     }
 
     @Bean
-    @Autowired(required = false)
     @ConditionalOnMissingBean(SyncSessionService.class)
     public SyncSessionService<?> syncSessionService(
             SyncSessionProperties properties
