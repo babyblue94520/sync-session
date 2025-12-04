@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 @TestInstance(PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Import({SessionConfig.class})
-@SpringBootTest(args = {"--h2.port=10090"})
+@SpringBootTest(classes = ApplicationTest.class, args = {"--h2.port=10090"})
 class PerformanceTest {
     private static final List<String> ports = new ArrayList<>();
 

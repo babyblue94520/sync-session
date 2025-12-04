@@ -40,7 +40,7 @@ public class SyncSessionLocalStore<T extends SyncSession> implements SyncSession
 
     public void destroy() {
         if (!properties.isPersistence()) return;
-        if (sessionMap.size() == 0) return;
+        if (sessionMap.isEmpty()) return;
         try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(getFile()))) {
             out.writeObject(sessionMap);
         } catch (IOException e) {
@@ -96,7 +96,7 @@ public class SyncSessionLocalStore<T extends SyncSession> implements SyncSession
     @Override
     public Collection<SyncSessionId> findAll(String username, String... excludeSessionIds) {
         List<SyncSessionId> result = new ArrayList<>();
-        if (sessionMap.size() == 0) return result;
+        if (sessionMap.isEmpty()) return result;
         Set<String> excludeIds = null;
         if (excludeSessionIds.length > 0) {
             excludeIds = new HashSet<>(excludeSessionIds.length);

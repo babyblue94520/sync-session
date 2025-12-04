@@ -172,7 +172,7 @@ public class SyncSessionServiceImpl<T extends SyncSession> extends SyncSessionOp
     public long batchInvalidate(Long time) {
         long count = 0;
         Collection<SyncSessionId> ids;
-        while ((ids = store.findAllInvalidate(time, properties.getBatchInvalidateCount())).size() > 0) {
+        while (!(ids = store.findAllInvalidate(time, properties.getBatchInvalidateCount())).isEmpty()) {
             count += batchInvalidate(ids);
         }
         return count;

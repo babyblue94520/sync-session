@@ -25,13 +25,12 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-
 @Sql(scripts = {"/schema/schema.sql"})
 @DisplayName("SessionQueryStringTest")
 @TestInstance(PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Import({SessionConfig.class, SessionListenerConfig.class})
-@SpringBootTest(args = {"--listen=true", "--sync-session.mode=querystring"})
+@SpringBootTest(classes = ApplicationTest.class, args = {"--listen=true", "--sync-session.mode=querystring"})
 class SessionQueryStringTest {
     private static final List<String> ports = new ArrayList<>();
 

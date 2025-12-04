@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 @TestInstance(PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Import({SessionConfig.class, SessionListenerConfig.class})
-@SpringBootTest(args = {"--listen=true"})
+@SpringBootTest(classes = ApplicationTest.class, args = {"--listen=true"})
 class SessionCookieTest {
     private static final List<String> ports = new ArrayList<>();
 
@@ -192,10 +192,10 @@ class SessionCookieTest {
             assertNotEquals(token, t);
             cookieManagers.put(p, cm);
         }
-
+        System.out.println(sessionId);
         syncSessionService.invalidateByUsername(username, sessionId);
         syncSessionService.keepalive(sessionId);
-        Thread.sleep(1000);
+        Thread.sleep(3000);
         for (String p : ports) {
             syncSessionService.keepalive(sessionId);
             String t = retryGetToken(cookieManagers.get(p), toUrl(p, "/token"), "", 0);

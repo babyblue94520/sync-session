@@ -1,5 +1,6 @@
 package pers.clare.session;
 
+import lombok.Getter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.InitializingBean;
@@ -38,6 +39,7 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
 
     protected Function<String, ? extends T> findFromStore;
 
+    @Getter
     protected final SyncSessionProperties properties;
 
     protected final SyncSessionEventService sessionEventService;
@@ -71,10 +73,6 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         if (sessionEventService != null) {
             sessionEventService.addListener(this::eventHandler);
         }
-    }
-
-    public SyncSessionProperties getProperties() {
-        return properties;
     }
 
     public T find(String id) {
@@ -148,7 +146,7 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
     private void invalidateHandler(String id, String username) {
         if (invalidates.remove(id) != null) return;
         sessions.remove(id);
-        if (invalidateListeners.size() > 0) {
+        if (!invalidateListeners.isEmpty()) {
             for (SyncSessionInvalidateListener invalidateListener : invalidateListeners) {
                 invalidateListener.onInvalidate(id, username, InvalidateBy.NOTICE);
             }
@@ -162,14 +160,16 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
     }
 
     protected long batchInvalidate(Collection<SyncSessionId> ids) {
-        if (ids.size() == 0) return 0;
+        if (ids.isEmpty()) return 0;
         long count = 0;
         String id;
         for (SyncSessionId syncSessionId : ids) {
             try {
                 id = syncSessionId.getId();
                 sessions.remove(id);
-                if (store.delete(id) == 0) continue;
+                int result = store.delete(id);
+                log.info("remove {}", id);
+                if (result == 0) continue;
                 count++;
                 triggerInvalidateEvent(id, syncSessionId.getUsername());
             } catch (Exception e) {
@@ -202,9 +202,10 @@ public class SyncSessionOperatorServiceImpl<T extends SyncSession> implements Sy
         String type = array[0];
         String id = array[1];
         String username = array[2];
-        switch (type) {
-            case EventType.INVALIDATE -> invalidateHandler(id, username);
-            case EventType.CLEAR -> clearHandler(id);
+        if (type.equals(EventType.INVALIDATE)) {
+            invalidateHandler(id, username);
+        } else if (type.equals(EventType.CLEAR)) {
+            clearHandler(id);
         }
     }
 }

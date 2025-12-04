@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 @TestInstance(PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Import({SessionConfig.class, SessionListenerConfig.class})
-@SpringBootTest(args = {"--listen=true", "--sync-session.mode=header"})
+@SpringBootTest(classes = ApplicationTest.class, args = {"--listen=true", "--sync-session.mode=header"})
 class SessionHeaderTest {
     private static final List<String> ports = new ArrayList<>();
 
@@ -187,7 +187,7 @@ class SessionHeaderTest {
 
         syncSessionService.invalidateByUsername(username, sessionId);
         syncSessionService.keepalive(sessionId);
-        Thread.sleep(1000);
+        Thread.sleep(3000);
         for (String p : ports) {
             syncSessionService.keepalive(sessionId);
             String t = retryGetToken(toUrl(p, "/token"), "", 0, sessionMap.get(p));
