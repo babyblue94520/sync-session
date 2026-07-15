@@ -37,7 +37,7 @@ This prevents an internal service-to-service protocol from becoming an implicit 
 <dependency>
   <groupId>io.github.babyblue94520</groupId>
   <artifactId>sync-session</artifactId>
-  <version>2.1.0-SNAPSHOT</version>
+  <version>3.0.0-RELEASE</version>
 </dependency>
 ```
 

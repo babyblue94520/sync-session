@@ -37,7 +37,7 @@ Sync Session 是一個給 Spring Boot 使用的共享 Session 管理解決方案
 <dependency>
   <groupId>io.github.babyblue94520</groupId>
   <artifactId>sync-session</artifactId>
-  <version>2.1.0-SNAPSHOT</version>
+  <version>3.0.0-RELEASE</version>
 </dependency>
 ```
 
