@@ -4,42 +4,46 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.Setter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.filter.OncePerRequestFilter;
-import pers.clare.session.RequestCache;
-import pers.clare.session.RequestCacheHolder;
-import pers.clare.session.SyncSessionService;
+import pers.clare.session.SyncSessionRequestContext;
+import pers.clare.session.SyncSessionRequestContextHolder;
 import pers.clare.session.listener.SessionAsyncListener;
+import pers.clare.session.service.SessionIdTransportService;
+import pers.clare.session.service.SyncSessionService;
 
 import java.io.IOException;
-
 
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class SyncSessionFilter extends OncePerRequestFilter {
 
-    private final SyncSessionService<?> syncSessionService;
+    @Setter(onMethod = @__(@Autowired))
+    private SyncSessionService<?> syncSessionService;
 
-    public SyncSessionFilter(SyncSessionService<?> syncSessionService) {
-        this.syncSessionService = syncSessionService;
-    }
+    @Setter(onMethod = @__(@Autowired))
+    private SessionIdTransportService sessionIdTransportService;
+
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
         @SuppressWarnings("unused")
-        RequestCache<?> requestCache = RequestCacheHolder.init(request, response, syncSessionService);
+        SyncSessionRequestContext<?> sessionContext = SyncSessionRequestContextHolder.init(request, response, syncSessionService, sessionIdTransportService);
+
+        var responseWrapper = new CommitAwareResponseWrapper(response, sessionContext);
         try {
-            filterChain.doFilter(request, response);
-            if(request.isAsyncStarted()){
-                request.getAsyncContext().addListener(new SessionAsyncListener(requestCache));
+            filterChain.doFilter(request, responseWrapper);
+            if (request.isAsyncStarted()) {
+                request.getAsyncContext().addListener(new SessionAsyncListener(sessionContext));
+            } else {
+                responseWrapper.refreshSessionIfNecessary();
             }
         } finally {
-            if(!request.isAsyncStarted()){
-                requestCache.refreshSession();
-            }
-            RequestCacheHolder.clear();
+            SyncSessionRequestContextHolder.clear();
         }
     }
 

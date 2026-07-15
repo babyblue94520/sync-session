@@ -9,8 +9,4 @@ public enum SessionMode {
      * Get and set session ID via header.
      */
     Header,
-    /**
-     * Get from response header and set session ID via queryString
-     */
-    QueryString
 }

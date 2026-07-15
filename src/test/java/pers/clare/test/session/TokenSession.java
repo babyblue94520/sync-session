@@ -1,16 +1,14 @@
 package pers.clare.test.session;
 
-import pers.clare.session.SyncSession;
+import lombok.Getter;
+import pers.clare.session.service.SyncSession;
 
+@Getter
 public class TokenSession extends SyncSession {
     private String csrfToken;
 
-    public String getCsrfToken() {
-        return csrfToken;
-    }
-
     public void setCsrfToken(String csrfToken) {
         this.csrfToken = csrfToken;
-        this.save();
+        this.setAsChanged();
     }
 }

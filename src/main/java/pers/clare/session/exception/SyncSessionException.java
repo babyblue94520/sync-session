@@ -1,8 +1,11 @@
 package pers.clare.session.exception;
 
+import lombok.Getter;
+
 import java.sql.SQLException;
 
 public class SyncSessionException extends RuntimeException {
+    @Getter
     private SQLException sqlException;
 
     public SyncSessionException(String message) {
@@ -14,9 +17,5 @@ public class SyncSessionException extends RuntimeException {
         if (e instanceof SQLException) {
             this.sqlException = (SQLException) e;
         }
-    }
-
-    public SQLException getSqlException() {
-        return sqlException;
     }
 }

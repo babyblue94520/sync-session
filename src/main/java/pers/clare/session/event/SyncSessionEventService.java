@@ -7,12 +7,12 @@ public interface SyncSessionEventService {
     /**
      * Send session clear events.
      */
-    void send( String body);
+    void send(String body);
 
     /**
      * Listen for session clear events.
      */
-    void addListener( Consumer<String> listener);
+    void addListener(Consumer<String> listener);
 
     /*
      * Affects whether the session manage can be cached.

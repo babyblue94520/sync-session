@@ -9,6 +9,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import pers.clare.h2.H2Application;
+import pers.clare.session.service.SyncSessionService;
 import pers.clare.test.ApplicationTest;
 import pers.clare.test.session.SyncSessionEventServiceImpl;
 import pers.clare.test.session.TokenSession;
@@ -19,7 +20,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @DisplayName("AvailableTest")
 @TestInstance(PER_CLASS)
-@SpringBootTest(classes = ApplicationTest.class, args = {"--sync-session.timeout=30m"})
+@SpringBootTest(classes = ApplicationTest.class, args = {"--sync-session.timeout=30m","--logging.level.pers.clare.session=debug"})
 class EventAvailableTest {
 
     @Autowired
@@ -40,12 +41,14 @@ class EventAvailableTest {
     @AfterAll
     void after() {
         if (h2server != null) SpringApplication.exit(h2server);
+        SyncSessionEventServiceImpl.shutdown();
     }
 
     @Test
     void available() {
         eventService.setAvailable(true);
         TokenSession session = sessionService.create(System.currentTimeMillis(), "test", "127.0.0.1");
+        sessionService.refresh(session);
         assertSame(session, sessionService.find(session.getId()));
 
         eventService.setAvailable(false);
@@ -72,7 +75,8 @@ class EventAvailableTest {
 
     void run() throws Exception {
         TokenSession session = sessionService.create(System.currentTimeMillis(), "test", "127.0.0.1");
-        PerformanceUtil.byCount("", 10, 100000, (index) -> {
+        sessionService.refresh(session);
+        PerformanceUtil.byCount("", 50, 1000000, (index) -> {
             assertNotNull(sessionService.find(session.getId()));
         });
     }

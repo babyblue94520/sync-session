@@ -2,20 +2,20 @@ package pers.clare.session.listener;
 
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
-import pers.clare.session.RequestCache;
+import pers.clare.session.SyncSessionRequestContext;
 
 public class SessionAsyncListener implements AsyncListener {
-    private RequestCache<?> requestCache;
+    private SyncSessionRequestContext<?> sessionContext;
 
-    public SessionAsyncListener(RequestCache<?> requestCache) {
-        this.requestCache = requestCache;
+    public SessionAsyncListener(SyncSessionRequestContext<?> sessionContext) {
+        this.sessionContext = sessionContext;
     }
 
     @Override
     public void onComplete(AsyncEvent asyncEvent) {
-        if (requestCache == null) return;
-        requestCache.refreshSession();
-        requestCache = null;
+        if (sessionContext == null) return;
+        sessionContext.refreshSession();
+        sessionContext = null;
     }
 
     @Override

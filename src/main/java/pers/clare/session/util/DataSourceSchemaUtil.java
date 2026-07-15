@@ -1,10 +1,11 @@
 package pers.clare.session.util;
 
+import lombok.experimental.UtilityClass;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.lang.NonNull;
-import pers.clare.session.constant.SQL;
+import pers.clare.session.store.SQL;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -12,6 +13,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 
+@UtilityClass
 public class DataSourceSchemaUtil {
 
     public static void init(@NonNull DataSource dataSource, String tableName) throws SQLException, IOException {

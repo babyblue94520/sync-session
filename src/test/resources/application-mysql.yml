@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: jdbc:mysql://${test.host:localhost}:3306/test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    driverClassName: com.mysql.cj.jdbc.Driver
+    username: ${test.username:root}
+    password: ${test.password:root}
+    hikari:
+      maximum-pool-size: 1200
+
+sync-session:
+  timeout: 10s
+  clazz: pers.clare.test.session.TokenSession
+  ds:
+    table-name: test_session

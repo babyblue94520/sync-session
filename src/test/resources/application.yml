@@ -1,12 +1,15 @@
+
+logging:
+  level:
+    pers.clare.session: debug
 spring:
-  datasource:
-    url: jdbc:h2:tcp://localhost:${h2.port:9090}/mem:mydb
-    driverClassName: org.h2.Driver
-    username: sa
-    password: 123456
+  profiles:
+    active: h2
+
 
 sync-session:
-  timeout: 5s
+  timeout: 10s
+
   clazz: pers.clare.test.session.TokenSession
   ds:
-    table-name: test-session
+    table-name: test_session

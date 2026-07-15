@@ -86,7 +86,7 @@ public class PerformanceUtil {
             future.get();
         }
         printFuture.cancel(true);
-        executor.shutdown();
+        executor.shutdownNow();
         return println(tag, counter, startTime, thread);
     }
 

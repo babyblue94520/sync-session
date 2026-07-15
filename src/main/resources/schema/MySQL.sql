@@ -1,14 +1,12 @@
-CREATE TABLE IF NOT EXISTS `{tableName}`
+CREATE TABLE IF NOT EXISTS {tableName}
 (
-    `id`                    varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
-    `create_time`           bigint(13) NULL DEFAULT 0,
-    `max_inactive_interval` bigint(13) NULL DEFAULT 0,
-    `last_access_time`      bigint(13) NULL DEFAULT 0,
-    `effective_time`        bigint(13) NULL DEFAULT 0,
-    `username`              varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '',
-    `attributes`            text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
-    PRIMARY KEY (`id`) USING BTREE,
-    KEY `username`(`username`) USING BTREE,
-    KEY `id_username` (`id`,`username`) USING BTREE,
-    KEY `effective_time` (`effective_time`,`username`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+    id                    varchar(36) CHARACTER SET utf8mb4 NOT NULL,
+    create_time           bigint(13) NULL DEFAULT 0,
+    max_inactive_interval bigint(13) NULL DEFAULT 0,
+    last_access_time      bigint(13) NULL DEFAULT 0,
+    username              varchar(100) CHARACTER SET utf8mb4 NULL DEFAULT '',
+    attributes            text CHARACTER SET utf8mb4 NULL,
+    PRIMARY KEY (id) USING BTREE,
+    KEY idx_username(username) USING BTREE,
+    KEY idx_last_access_time (last_access_time) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 ROW_FORMAT = Dynamic;

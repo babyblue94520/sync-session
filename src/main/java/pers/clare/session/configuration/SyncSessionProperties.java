@@ -4,9 +4,9 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
-import pers.clare.session.SyncSession;
 import pers.clare.session.constant.SessionMode;
 import pers.clare.session.constant.StoreType;
+import pers.clare.session.service.SyncSession;
 
 import java.time.Duration;
 
@@ -31,7 +31,13 @@ public class SyncSessionProperties {
      */
     private Duration timeout = Duration.ofMinutes(30);
 
-    private Long batchInvalidateCount = 100L;
+    /**
+     * Batch job fixed delay.
+     */
+    private Duration batchJobDelay = Duration.ofMinutes(1);
+
+
+    private int maxRetryInsert = 5;
 
     /**
      * Session class
@@ -65,6 +71,7 @@ public class SyncSessionProperties {
 
         private String fileName = "session.ser";
 
+
     }
 
     @Setter
@@ -72,6 +79,12 @@ public class SyncSessionProperties {
     public static class DSProperties {
         private String beanName = "";
         private String tableName = "session";
+
+        /**
+         * Batch update lastAccessTime size.
+         */
+        private Integer updateBatchSize = 100;
+
 
     }
 }
